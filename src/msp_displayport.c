@@ -1791,6 +1791,7 @@ void save_vtx_param() {
     //OFFSET_25MW = vtx_offset;
     TEAM_RACE = vtx_team_race;
     SHORTCUT = vtx_shortcut;
+    CFG_Back();
     Setting_Save();
     Imp_RF_Param();
 
