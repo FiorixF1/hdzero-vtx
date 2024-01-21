@@ -40,19 +40,19 @@
 /* define VTX ID end */
 
 #if defined HDZERO_WHOOP
-#define VTX_NAME "HDZ WHOOP"
+#define VTX_NAME "CITA WHOOP"
 #elif defined HDZERO_WHOOP_LITE
-#define VTX_NAME "HDZ WHOOP LITE"
+#define VTX_NAME "CITA WHOOP LITE"
 #elif defined HDZERO_RACE_V1
-#define VTX_NAME "HDZ RACE V1"
+#define VTX_NAME "CITA RACE V1"
 #elif defined HDZERO_RACE_V2
-#define VTX_NAME "HDZ RACE V2"
+#define VTX_NAME "CITA RACE V2"
 #elif defined HDZERO_FREESTYLE_V1
 #define VTX_NAME "HDZ FREESTYLE V1"
 #elif defined FOXEER_VTX
-#define VTX_NAME "FOX VTX"
+#define VTX_NAME "CITA FOX VTX"
 #elif defined HDZERO_RACE_V3
-#define VTX_NAME "HDZ RACE V3"
+#define VTX_NAME "CITA RACE V3"
 #elif defined HDZERO_FREESTYLE_V2
 #define VTX_NAME "HDZ FREESTYLE V2"
 #else

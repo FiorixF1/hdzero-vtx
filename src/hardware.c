@@ -38,11 +38,11 @@ uint8_t powerLock = 1;
 //    0------------25mW (14dBm)
 //    1------------200mW(23dBm)
 **********************************/
-uint8_t RF_POWER = 0;
+const uint8_t RF_POWER = 0;
 uint8_t RF_FREQ = 0;
 uint8_t LP_MODE = 0;
 uint8_t PIT_MODE = 0;
-uint8_t OFFSET_25MW = 0; // 0~10 -> 0~10    11~20 -> -1~-10
+const uint8_t OFFSET_25MW = 0; // 0~10 -> 0~10    11~20 -> -1~-10
 uint8_t TEAM_RACE = 0;
 uint8_t BAUDRATE = 0;
 uint8_t SHORTCUT = 0;
@@ -313,10 +313,10 @@ void Setting_Save() {
 
 void CFG_Back() {
     RF_FREQ = (RF_FREQ >= FREQ_NUM) ? 0 : RF_FREQ;
-    RF_POWER = (RF_POWER > POWER_MAX) ? 0 : RF_POWER;
+    //RF_POWER = (RF_POWER > POWER_MAX) ? 0 : RF_POWER;
     LP_MODE = (LP_MODE > 2) ? 0 : LP_MODE;
     PIT_MODE = (PIT_MODE > PIT_0MW) ? PIT_OFF : PIT_MODE;
-    OFFSET_25MW = (OFFSET_25MW > 20) ? 0 : OFFSET_25MW;
+    //OFFSET_25MW = (OFFSET_25MW > 20) ? 0 : OFFSET_25MW;
     BAUDRATE = (BAUDRATE > 1) ? 0 : BAUDRATE;
     TEAM_RACE = (TEAM_RACE > 2) ? 0 : TEAM_RACE;
     SHORTCUT = (SHORTCUT > 1) ? 0 : SHORTCUT;
@@ -404,10 +404,10 @@ void GetVtxParameter() {
         // VTX Setting
         lowband_lock = I2C_Read8_Wait(10, ADDR_EEPROM, EEP_ADDR_LOWBAND_LOCK);
         RF_FREQ = I2C_Read8(ADDR_EEPROM, EEP_ADDR_RF_FREQ);
-        RF_POWER = I2C_Read8(ADDR_EEPROM, EEP_ADDR_RF_POWER);
+        //RF_POWER = I2C_Read8(ADDR_EEPROM, EEP_ADDR_RF_POWER);
         LP_MODE = I2C_Read8(ADDR_EEPROM, EEP_ADDR_LPMODE);
         PIT_MODE = I2C_Read8(ADDR_EEPROM, EEP_ADDR_PITMODE);
-        OFFSET_25MW = I2C_Read8(ADDR_EEPROM, EEP_ADDR_25MW);
+        //OFFSET_25MW = I2C_Read8(ADDR_EEPROM, EEP_ADDR_25MW);
         TEAM_RACE = I2C_Read8(ADDR_EEPROM, EEP_ADDR_TEAM_RACE);
         SHORTCUT = I2C_Read8(ADDR_EEPROM, EEP_ADDR_SHORTCUT);
 #ifdef USE_TRAMP
@@ -1197,9 +1197,9 @@ void Button1_SP() {
         break;
     case 2:
         if (RF_POWER >= POWER_MAX)
-            RF_POWER = 0;
+            ;//RF_POWER = 0;
         else
-            RF_POWER++;
+            ;//RF_POWER++;
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
         if (powerLock)
             RF_POWER &= 0x01;
@@ -1607,7 +1607,7 @@ void RF_Delay_Init() {
         pwr_lmt_sec = PWR_LMT_SEC;
         if (SA_lock) {
             if (pwr_init == POWER_MAX + 2) { // 0mW
-                RF_POWER = POWER_MAX + 2;
+                //RF_POWER = POWER_MAX + 2;
                 cur_pwr = POWER_MAX + 2;
             } else if (PIT_MODE) {
                 Init_6300RF(ch_init, POWER_MAX + 1);

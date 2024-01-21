@@ -57,7 +57,7 @@ extern uint8_t lowband_lock;
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
 #define POWER_MAX 3
 #else
-#define POWER_MAX 1
+#define POWER_MAX 0
 #endif
 
 #ifdef USE_TC3587_LED
@@ -106,10 +106,10 @@ void RF_Delay_Init();
 extern uint8_t powerLock;
 #endif
 extern uint8_t RF_FREQ;
-extern uint8_t RF_POWER;
+extern const uint8_t RF_POWER;
 extern uint8_t LP_MODE;
 extern uint8_t PIT_MODE;
-extern uint8_t OFFSET_25MW;
+extern const uint8_t OFFSET_25MW;
 extern uint8_t TEAM_RACE;
 extern uint8_t KEYBOARD_ON;
 extern uint8_t EE_VALID;

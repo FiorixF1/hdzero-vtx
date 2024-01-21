@@ -34,11 +34,11 @@ uint8_t resolution_last = HD_5018;
 uint8_t msp_rx_buf[64]; // from FC responding status|variant|rc commands
 
 uint8_t vtx_channel;
-uint8_t vtx_power;
+const uint8_t vtx_power = 0;
 uint8_t vtx_lp;
 uint8_t vtx_pit;
 uint8_t vtx_pit_save = PIT_OFF;
-uint8_t vtx_offset = 0;
+const uint8_t vtx_offset = 0;
 uint8_t vtx_team_race = 0;
 uint8_t vtx_shortcut = 0;
 uint8_t first_arm = 0;
@@ -1070,7 +1070,7 @@ void parseMspVtx_V2(uint16_t const cmd_u16) {
             else
 #endif
 #endif
-                if (nxt_pwr == POWER_MAX + 1) {
+            if (nxt_pwr == POWER_MAX + 1) {
                 WriteReg(0, 0x8F, 0x10);
                 dm6300_init_done = 0;
                 cur_pwr = POWER_MAX + 2;
@@ -1089,7 +1089,7 @@ void parseMspVtx_V2(uint16_t const cmd_u16) {
 
     // update power
     if (last_pwr != nxt_pwr) {
-        if (last_pwr == POWER_MAX + 1) {
+        if (last_pwr == POWER_MAX + 1) { 
             // Exit 0mW
             if (cur_pwr == POWER_MAX + 2) {
                 if (PIT_MODE)
@@ -1110,7 +1110,7 @@ void parseMspVtx_V2(uint16_t const cmd_u16) {
                 temp_err = 1;
             }
         } else if (nxt_pwr <= POWER_MAX) {
-            RF_POWER = nxt_pwr;
+            //RF_POWER = nxt_pwr;
             if (PIT_MODE)
                 nxt_pwr = POWER_MAX + 1;
             if (dm6300_init_done) {
@@ -1340,7 +1340,7 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
             break;
         if (cms_cnt == 3) {
             vtx_channel = RF_FREQ;
-            vtx_power = RF_POWER;
+            //vtx_power = RF_POWER;
             vtx_lp = LP_MODE;
             PIT_MODE = PIT_0MW;
             vtx_pit = PIT_0MW;
@@ -1362,10 +1362,10 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
             break;
         if (vtx_pit == PIT_0MW) {
             vtx_channel = RF_FREQ;
-            vtx_power = RF_POWER;
+            //vtx_power = RF_POWER;
             vtx_lp = LP_MODE;
             vtx_pit = PIT_OFF;
-            vtx_offset = OFFSET_25MW;
+            //vtx_offset = OFFSET_25MW;
             vtx_team_race = TEAM_RACE;
             vtx_shortcut = SHORTCUT;
             if (SA_lock) {
@@ -1434,23 +1434,23 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                         vtx_menu_state = VTX_MENU_CHANNEL;
                     else if (VirtualBtn == BTN_RIGHT) {
                         if ((SA_lock || tramp_lock) == 0) {
-                            vtx_power++;
+                            ;//vtx_power++;
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
                             if (powerLock)
                                 vtx_power &= 0x01;
 #endif
                             if (vtx_power > POWER_MAX)
-                                vtx_power = 0;
+                                ;//vtx_power = 0;
                         }
                     } else if (VirtualBtn == BTN_LEFT) {
                         if ((SA_lock || tramp_lock) == 0) {
-                            vtx_power--;
+                            ;//vtx_power--;
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
                             if (powerLock)
                                 vtx_power &= 0x01;
 #endif
                             if (vtx_power > POWER_MAX)
-                                vtx_power = POWER_MAX;
+                                ;//vtx_power = POWER_MAX;
                         }
                     }
                     update_vtx_menu_param(vtx_menu_state);
@@ -1506,23 +1506,23 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                     else if (VirtualBtn == BTN_UP)
                         vtx_menu_state = VTX_MENU_PIT_MODE;
                     else if (VirtualBtn == BTN_RIGHT) {
-                        if (vtx_offset == 10)
+                        /*if (vtx_offset == 10)
                             vtx_offset = vtx_offset;
                         else if (vtx_offset == 11)
                             vtx_offset = 0;
                         else if (vtx_offset < 10)
                             vtx_offset++;
                         else
-                            vtx_offset--;
+                            vtx_offset--;*/
                     } else if (VirtualBtn == BTN_LEFT) {
-                        if (vtx_offset == 20)
+                        /*if (vtx_offset == 20)
                             vtx_offset = vtx_offset;
                         else if (vtx_offset == 0)
                             vtx_offset = 11;
                         else if (vtx_offset > 10)
                             vtx_offset++;
                         else
-                            vtx_offset--;
+                            vtx_offset--;*/
                     }
                     update_vtx_menu_param(vtx_menu_state);
                     break;
@@ -1586,11 +1586,11 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                         cms_state = CMS_OSD;
                         if (SA_lock || tramp_lock) {
                             RF_FREQ = vtx_channel;
-                            RF_POWER = vtx_power;
+                            //RF_POWER = vtx_power;
                             LP_MODE = vtx_lp;
                             PIT_MODE = vtx_pit;
                             vtx_pit_save = vtx_pit;
-                            OFFSET_25MW = vtx_offset;
+                            //OFFSET_25MW = vtx_offset;
                             SHORTCUT = vtx_shortcut;
                             CFG_Back();
                             Setting_Save();
@@ -1673,7 +1673,7 @@ void vtx_menu_init() {
     strcpy(osd_buf[3] + osd_menu_offset + 2, " POWER");
     strcpy(osd_buf[4] + osd_menu_offset + 2, " LP_MODE");
     strcpy(osd_buf[5] + osd_menu_offset + 2, " PIT_MODE");
-    strcpy(osd_buf[6] + osd_menu_offset + 2, " OFFSET_25MW");
+    strcpy(osd_buf[6] + osd_menu_offset + 2, "            ");
     strcpy(osd_buf[7] + osd_menu_offset + 2, " TEAM_RACE");
     strcpy(osd_buf[8] + osd_menu_offset + 2, " SHORTCUTS");
     strcpy(osd_buf[9] + osd_menu_offset + 2, " EXIT  ");
@@ -1698,10 +1698,10 @@ void vtx_menu_init() {
     strcpy(osd_buf[13] + osd_menu_offset + 13, VTX_VERSION_STRING);
 
     vtx_channel = RF_FREQ;
-    vtx_power = RF_POWER;
+    //vtx_power = RF_POWER;
     vtx_lp = LP_MODE;
     vtx_pit = PIT_MODE;
-    vtx_offset = OFFSET_25MW;
+    //vtx_offset = OFFSET_25MW;
     vtx_team_race = TEAM_RACE;
     vtx_shortcut = SHORTCUT;
     update_vtx_menu_param(0);
@@ -1750,7 +1750,8 @@ void update_vtx_menu_param(uint8_t state) {
     strcpy(osd_buf[4] + osd_menu_offset + 20, lowPowerString[vtx_lp]);
     strcpy(osd_buf[5] + osd_menu_offset + 20, pitString[vtx_pit]);
 
-    if (vtx_offset < 10) {
+    strcpy(osd_buf[6] + osd_menu_offset + 20, "     ");
+    /*if (vtx_offset < 10) {
         strcpy(osd_buf[6] + osd_menu_offset + 20, "     ");
         osd_buf[6][osd_menu_offset + 23] = '0' + vtx_offset;
     } else if (vtx_offset == 10)
@@ -1759,7 +1760,7 @@ void update_vtx_menu_param(uint8_t state) {
         strcpy(osd_buf[6] + osd_menu_offset + 20, "   -");
         osd_buf[6][osd_menu_offset + 24] = '0' + (vtx_offset - 10);
     } else if (vtx_offset == 20)
-        strcpy(osd_buf[6] + osd_menu_offset + 20, "  -10");
+        strcpy(osd_buf[6] + osd_menu_offset + 20, "  -10");*/
 
     strcpy(osd_buf[7] + osd_menu_offset + 20, treamRaceString[vtx_team_race]);
 
@@ -1783,14 +1784,13 @@ void update_vtx_menu_param(uint8_t state) {
 
 void save_vtx_param() {
     RF_FREQ = vtx_channel;
-    RF_POWER = vtx_power;
+    //RF_POWER = vtx_power;
     LP_MODE = vtx_lp;
     PIT_MODE = vtx_pit;
     vtx_pit_save = vtx_pit;
-    OFFSET_25MW = vtx_offset;
+    //OFFSET_25MW = vtx_offset;
     TEAM_RACE = vtx_team_race;
     SHORTCUT = vtx_shortcut;
-    CFG_Back();
     Setting_Save();
     Imp_RF_Param();
 
@@ -1982,7 +1982,7 @@ CODE_SEG const uint8_t bf_vtx_band_table[7][31] = {
 };
 CODE_SEG const uint8_t bf_vtx_power_table[5][9] = {
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x01, 0x0e, 0x00, 0x03, '2', '5', ' '}, // 25mW
-    {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x02, 0x17, 0x00, 0x03, '2', '0', '0'}, // 200mW
+    {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x02, 0x00, 0x00, 0x03, '0', ' ', ' '}, // 0mW
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x03, 0x00, 0x00, 0x03, '0', ' ', ' '}, // 0mW
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x04, 0x00, 0x00, 0x03, '0', ' ', ' '}, // 0mW
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x05, 0x00, 0x00, 0x03, '0', ' ', ' '}, // 0mW
