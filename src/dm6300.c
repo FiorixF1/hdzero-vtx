@@ -51,6 +51,33 @@ uint8_t table_power[FREQ_NUM_EXTERNAL][POWER_MAX + 1] = {
     {0x70, 0x68, 0x5c, 0x60},
     {0x70, 0x68, 0x5c, 0x60},
 };
+#elif defined RACE_MODE
+uint8_t table_power[FREQ_NUM_EXTERNAL][POWER_MAX + 1] = {
+    // race band
+    {0x79},
+    {0x77},
+    {0x75},
+    {0x73},
+    {0x72},
+    {0x70},
+    {0x72},
+    {0x71},
+    // e band
+    {0x79}, // E1
+    // fatshark band
+    {0x75}, // F1
+    {0x73}, // F2
+    {0x72}, // F4
+    // low band
+    {0x79},
+    {0x79},
+    {0x79},
+    {0x79},
+    {0x79},
+    {0x79},
+    {0x79},
+    {0x79},
+};
 #else
 uint8_t table_power[FREQ_NUM_EXTERNAL][POWER_MAX + 1] = {
     // race band

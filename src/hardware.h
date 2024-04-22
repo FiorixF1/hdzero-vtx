@@ -56,6 +56,8 @@ extern uint8_t lowband_lock;
 #define FREQ_NUM (lowband_lock ? 12 : 20)
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
 #define POWER_MAX 3
+#elif defined RACE_MODE
+#define POWER_MAX 0
 #else
 #define POWER_MAX 1
 #endif

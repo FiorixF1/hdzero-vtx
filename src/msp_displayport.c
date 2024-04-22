@@ -1079,7 +1079,7 @@ void parseMspVtx_V2(uint16_t const cmd_u16) {
             else
 #endif
 #endif
-                if (nxt_pwr == POWER_MAX + 1) {
+            if (nxt_pwr == POWER_MAX + 1) {
                 WriteReg(0, 0x8F, 0x10);
                 dm6300_init_done = 0;
                 cur_pwr = POWER_MAX + 2;
@@ -1515,6 +1515,7 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                     else if (VirtualBtn == BTN_UP)
                         vtx_menu_state = VTX_MENU_PIT_MODE;
                     else if (VirtualBtn == BTN_RIGHT) {
+#ifndef RACE_MODE
                         if (vtx_offset == 10)
                             vtx_offset = vtx_offset;
                         else if (vtx_offset == 11)
@@ -1523,7 +1524,9 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                             vtx_offset++;
                         else
                             vtx_offset--;
+#endif
                     } else if (VirtualBtn == BTN_LEFT) {
+#ifndef RACE_MODE
                         if (vtx_offset == 20)
                             vtx_offset = vtx_offset;
                         else if (vtx_offset == 0)
@@ -1532,6 +1535,7 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                             vtx_offset++;
                         else
                             vtx_offset--;
+#endif
                     }
                     update_vtx_menu_param(vtx_menu_state);
                     break;
@@ -1682,7 +1686,11 @@ void vtx_menu_init() {
     strcpy(osd_buf[3] + osd_menu_offset + 2, " POWER");
     strcpy(osd_buf[4] + osd_menu_offset + 2, " LP_MODE");
     strcpy(osd_buf[5] + osd_menu_offset + 2, " PIT_MODE");
+#ifdef RACE_MODE
+    strcpy(osd_buf[6] + osd_menu_offset + 2, "            ");
+#else
     strcpy(osd_buf[6] + osd_menu_offset + 2, " OFFSET_25MW");
+#endif
     strcpy(osd_buf[7] + osd_menu_offset + 2, " TEAM_RACE");
     strcpy(osd_buf[8] + osd_menu_offset + 2, " SHORTCUTS");
     strcpy(osd_buf[9] + osd_menu_offset + 2, " EXIT  ");
@@ -1696,8 +1704,13 @@ void vtx_menu_init() {
 #endif
 
     for (i = 2; i < 9; i++) {
-        osd_buf[i][osd_menu_offset + 19] = '<';
-        osd_buf[i][osd_menu_offset + 26] = '>';
+#ifdef RACE_MODE
+        if (i != 6)
+#endif
+        {
+            osd_buf[i][osd_menu_offset + 19] = '<';
+            osd_buf[i][osd_menu_offset + 26] = '>';
+        }
     }
 
     // draw variant
@@ -1759,6 +1772,9 @@ void update_vtx_menu_param(uint8_t state) {
     strcpy(osd_buf[4] + osd_menu_offset + 20, lowPowerString[vtx_lp]);
     strcpy(osd_buf[5] + osd_menu_offset + 20, pitString[vtx_pit]);
 
+#ifdef RACE_MODE
+    strcpy(osd_buf[6] + osd_menu_offset + 20, "     ");
+#else
     if (vtx_offset < 10) {
         strcpy(osd_buf[6] + osd_menu_offset + 20, "     ");
         osd_buf[6][osd_menu_offset + 23] = '0' + vtx_offset;
@@ -1769,6 +1785,7 @@ void update_vtx_menu_param(uint8_t state) {
         osd_buf[6][osd_menu_offset + 24] = '0' + (vtx_offset - 10);
     } else if (vtx_offset == 20)
         strcpy(osd_buf[6] + osd_menu_offset + 20, "  -10");
+#endif
 
     strcpy(osd_buf[7] + osd_menu_offset + 20, treamRaceString[vtx_team_race]);
 
@@ -1991,7 +2008,11 @@ CODE_SEG const uint8_t bf_vtx_band_table[7][31] = {
 };
 CODE_SEG const uint8_t bf_vtx_power_table[5][9] = {
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x01, 0x0e, 0x00, 0x03, '2', '5', ' '}, // 25mW
+#ifdef RACE_MODE
+    {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x02, 0x00, 0x00, 0x03, '0', ' ', ' '}, // 0mW
+#else
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x02, 0x17, 0x00, 0x03, '2', '0', '0'}, // 200mW
+#endif
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x03, 0x00, 0x00, 0x03, '0', ' ', ' '}, // 0mW
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x04, 0x00, 0x00, 0x03, '0', ' ', ' '}, // 0mW
     {/*0x24,0x4d,0x3c,*/ 0x07, 0xe4, 0x05, 0x00, 0x00, 0x03, '0', ' ', ' '}, // 0mW

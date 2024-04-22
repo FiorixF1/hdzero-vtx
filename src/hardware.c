@@ -373,10 +373,18 @@ void Setting_Save() {
 
 void CFG_Back() {
     RF_FREQ = (RF_FREQ >= FREQ_NUM) ? 0 : RF_FREQ;
+#ifdef RACE_MODE
+    RF_POWER = 0;
+#else
     RF_POWER = (RF_POWER > POWER_MAX) ? 0 : RF_POWER;
+#endif
     LP_MODE = (LP_MODE > 2) ? 0 : LP_MODE;
     PIT_MODE = (PIT_MODE > PIT_0MW) ? PIT_OFF : PIT_MODE;
+#ifdef RACE_MODE
+    OFFSET_25MW = 0;
+#else
     OFFSET_25MW = (OFFSET_25MW > 20) ? 0 : OFFSET_25MW;
+#endif
     BAUDRATE = (BAUDRATE > 1) ? 0 : BAUDRATE;
     TEAM_RACE = (TEAM_RACE > 2) ? 0 : TEAM_RACE;
     SHORTCUT = (SHORTCUT > 1) ? 0 : SHORTCUT;
@@ -464,10 +472,18 @@ void GetVtxParameter() {
         // VTX Setting
         lowband_lock = I2C_Read8_Wait(10, ADDR_EEPROM, EEP_ADDR_LOWBAND_LOCK);
         RF_FREQ = I2C_Read8(ADDR_EEPROM, EEP_ADDR_RF_FREQ);
+#ifdef RACE_MODE
+        RF_POWER = 0;
+#else
         RF_POWER = I2C_Read8(ADDR_EEPROM, EEP_ADDR_RF_POWER);
+#endif
         LP_MODE = I2C_Read8(ADDR_EEPROM, EEP_ADDR_LPMODE);
         PIT_MODE = I2C_Read8(ADDR_EEPROM, EEP_ADDR_PITMODE);
+#ifdef RACE_MODE
+        OFFSET_25MW = 0;
+#else
         OFFSET_25MW = I2C_Read8(ADDR_EEPROM, EEP_ADDR_25MW);
+#endif
         TEAM_RACE = I2C_Read8(ADDR_EEPROM, EEP_ADDR_TEAM_RACE);
         SHORTCUT = I2C_Read8(ADDR_EEPROM, EEP_ADDR_SHORTCUT);
 #ifdef USE_TRAMP

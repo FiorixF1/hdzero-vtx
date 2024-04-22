@@ -42,6 +42,15 @@
 #endif
 /* define VTX ID end */
 
+// mode
+// #define _RF_CALIB
+// #define REV_UART
+// #define VIDEO_PAT
+// #define FIX_EEP
+// #define RESET_CONFIG
+#define RACE_MODE
+
+#ifndef RACE_MODE
 #if defined HDZERO_WHOOP
 #define VTX_NAME "HDZ WHOOP"
 #elif defined HDZERO_WHOOP_LITE
@@ -63,6 +72,36 @@
 #else
 #define VTX_NAME "  "
 #endif
+#else
+#if defined HDZERO_WHOOP
+#define VTX_NAME "CITA WHOOP"
+#elif defined HDZERO_WHOOP_LITE
+#define VTX_NAME "CITA WHOOP LITE"
+#elif defined HDZERO_RACE_V1
+#define VTX_NAME "CITA RACE V1"
+#elif defined HDZERO_RACE_V2
+#define VTX_NAME "CITA RACE V2"
+#elif defined HDZERO_FREESTYLE_V1
+#error "Race mode is not available for Freestyle v1"
+#elif defined FOXEER_VTX
+#define VTX_NAME "CITA FOX VTX"
+#elif defined HDZERO_RACE_V3
+#define VTX_NAME "CITA RACE V3"
+#elif defined HDZERO_FREESTYLE_V2
+#error "Race mode is not available for Freestyle v2"
+#elif defined HDZERO_ECO
+#define VTX_NAME "CITA ECO"
+#else
+#define VTX_NAME "  "
+#endif
+#endif
+
+// remove Smartaudio and Tramp from RACE_MODE
+#ifdef RACE_MODE
+#undef USE_SMARTAUDIO_SW
+#undef USE_SMARTAUDIO_HW
+#undef USE_TRAMP
+#endif
 
 // system
 #define assert(c)
@@ -70,13 +109,6 @@
 
 #define EXTEND_BUF
 // #define EXTEND_BUF1
-
-// mode
-// #define _RF_CALIB
-// #define REV_UART
-// #define VIDEO_PAT
-// #define FIX_EEP
-// #define RESET_CONFIG
 
 #ifndef _RF_CALIB
 // #define _DEBUG_MODE
