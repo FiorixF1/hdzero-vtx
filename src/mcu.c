@@ -115,13 +115,33 @@ void version_info(void) {
 #endif
 }
 
+uint8_t I2C_EN = 0;
+
 void main(void) {
-    // init
+    I2C_EN = 0;
+    WAIT(500);
+
     CPU_init();
     WriteReg(0, 0xB0, 0x3E);
     WriteReg(0, 0xB2, 0x03);
     WriteReg(0, 0x80, 0xC8);
-    // WAIT(100);
+
+    if (I2C_EN == 0)
+        I2C_EN = 1;
+
+    uart_init();
+
+    // IE should be set after uart_init()
+    IE = 0xD2; // [7]   enable global interupts  1
+               // [6]   enable uart1  interupt   1
+               // [5]   enable timer2 interupt   0
+               // [4]   enable uart0  interupt   1
+               // [3]   enable timer1 interupt   0
+               // [2]   enable INT1   interupt   0
+               // [1]   enable timer0 interupt   0
+               // [0]   enable INT0   interupt   0
+
+    check_eeprom();
     version_info();
     Init_HW(); // init
     fc_init(); // init displayport
@@ -171,5 +191,9 @@ void main(void) {
             runcam_shutter_fix(seconds);
         }
         RF_Delay_Init();
+
+#ifdef USE_USB_DET
+        usb_det_task();
+#endif
     }
 }

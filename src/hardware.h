@@ -16,17 +16,15 @@ typedef enum {
     BW_17M
 } BWType_e;
 
-#define PWR_DEFAULT 2
-#define SPARKLE_T   20
-
 // eeprom parameter
-#define EEP_ADDR_CAM_TYPE    0x40
-#define EEP_ADDR_CAM_PROFILE 0x41
+#define EEP_ADDR_TAB1         0x00 // 0x00 - 0x1F
+#define EEP_ADDR_TAB2         0x20 // 0x20 - 0x3F
+#define EEP_ADDR_CAM_TYPE     0x40
+#define EEP_ADDR_CAM_PROFILE  0x41
 // profile 1: 0x42~0x51
 // profile 2: 0x52~0x61
-// profile 2: 0x62~0x71
-#define EEP_ADDR_CAM_SETTING 0x42
-
+// profile 3: 0x62~0x71
+#define EEP_ADDR_CAM_SETTING  0x42
 #define EEP_ADDR_RF_FREQ      0x80
 #define EEP_ADDR_RF_POWER     0x81
 #define EEP_ADDR_LPMODE       0x82
@@ -39,11 +37,16 @@ typedef enum {
 #define EEP_ADDR_BAUDRATE     0x8B
 #define EEP_ADDR_LOWBAND_LOCK 0x8C
 #define EEP_ADDR_SHORTCUT     0x8D
+#define EEP_ADDR_CAM_RATIO    0x8E
+#define EEP_ADDR_TAB3         0xA0 // 0xA0 - 0xBF
+#define EEP_ADDR_DCOC1        0xC0 // 0xC0 - 0xC4
 #define EEP_ADDR_DCOC_EN      0xC0
 #define EEP_ADDR_DCOC_IH      0xC1
 #define EEP_ADDR_DCOC_IL      0xC2
 #define EEP_ADDR_DCOC_QH      0xC3
 #define EEP_ADDR_DCOC_QL      0xC4
+#define EEP_ADDR_DCOC2        0xC5 // 0xC5 - 0xC9
+#define EEP_ADDR_DCOC3        0xCA // 0xCA - 0xCE
 #define EEP_ADDR_LIFETIME_0   0xF0
 #define EEP_ADDR_LIFETIME_1   0xF1
 #define EEP_ADDR_LIFETIME_2   0xF2
@@ -82,6 +85,7 @@ void GetVtxParameter();
 void Setting_Save();
 void Imp_RF_Param();
 void CFG_Back();
+void check_eeprom();
 
 void Set_720P50(uint8_t page);
 void Set_720P60(uint8_t page);
@@ -104,7 +108,9 @@ void vtx_paralized(void);
 
 void timer_task();
 void RF_Delay_Init();
-
+#ifdef USE_USB_DET
+void usb_det_task();
+#endif
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
 extern uint8_t powerLock;
 #endif
@@ -121,6 +127,7 @@ extern uint8_t RF_BW_last;
 extern uint8_t BAUDRATE;
 extern uint8_t SHORTCUT;
 
+extern uint8_t cameraLost;
 extern uint8_t pwr_offset;
 extern uint8_t heat_protect;
 

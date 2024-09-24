@@ -17,6 +17,7 @@
 // #define HDZERO_RACE_V3
 // #define HDZERO_FREESTYLE_V2
 // #define HDZERO_ECO
+// #define HDZERO_AIO5
 
 /* define VTX ID start */
 #if defined HDZERO_WHOOP
@@ -37,6 +38,8 @@
 #define VTX_ID 0x5b
 #elif defined HDZERO_ECO
 #define VTX_ID 0x5c
+#elif defined HDZERO_AIO5
+#define VTX_ID 0x5d
 #else
 #define VTX_ID 0x00
 #endif
@@ -69,6 +72,8 @@
 #define VTX_NAME "HDZ FREESTYLE V2"
 #elif defined HDZERO_ECO
 #define VTX_NAME "HDZ ECO"
+#elif defined HDZERO_AIO5
+#define VTX_NAME "HDZ AIO5"
 #else
 #define VTX_NAME "  "
 #endif
@@ -91,6 +96,8 @@
 #error "Race mode is not available for Freestyle v2"
 #elif defined HDZERO_ECO
 #define VTX_NAME "CITA ECO"
+#elif defined HDZERO_AIO5
+#define VTX_NAME "CITA AIO5"
 #else
 #define VTX_NAME "  "
 #endif
@@ -112,15 +119,7 @@
 
 #ifndef _RF_CALIB
 // #define _DEBUG_MODE
-// #define _DEBUG_DM6300
-// #define _DEBUG_TC3587
-// #define _DEBUG_CAMERA
-// #define _DEBUG_LIFETIME
-// #define _DEBUG_SMARTAUDIO
-// #define _DEBUG_DISPLAYPORT
-// #define _DEBUG_RUNCAM
 // #define _DEBUG_SPI
-// #define _DEBUG_TRAMP
 #endif
 
 #define Raceband
@@ -169,6 +168,8 @@
 #define SUART_PORT P0_3
 #elif defined USE_TC3587_RSTB
 #define TC3587_RSTB P0_3
+#elif defined USE_USB_DET
+#define USB_DET P0_3
 #endif
 #define CAM_PWM P0_4
 #define BTN_1   P0_5

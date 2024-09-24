@@ -74,34 +74,38 @@ uint8_t led_status = 0;
 
 // Blue LED diagnostic encoding, in 1/16s blocks over 4s (64 flags)
 // Short pulse 1/4s (4 flags)
-// Long pulse 1s    (16 flags)
-// OFF   3/8s       (6 flags)
+// Long pulse  1s   (16 flags)
+// OFF         3/8s (6 flags)
 
-// SS
+// Note that the OFF pulse is intentionally longer than the short ON pulse because
+// the LED continues to glow for a short period when turned off.
+// The longer off pulse makes it easier to visually separate the ON pulses.
+
+// Short     Short
 // XXXX------XXXX---------------------------------------------------
 const uint8_t diag_led_flags_cameralost[64] = {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0,
                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-// SSS
+// Short     Short     Short
 // XXXX------XXXX------XXXX-----------------------------------------
 const uint8_t diag_led_flags_heatprotect[64] = {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0,
                                                 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
                                                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-// SSSS
+// Short     Short     Short     Short
 // XXXX------XXXX------XXXX------XXXX-------------------------------
 const uint8_t diag_led_flags_dm6300lost[64] = {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0,
                                                0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1,
                                                1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-// LS
+// Long                  Short
 // XXXXXXXXXXXXXXXX------XXXX-------------------------------------
 const uint8_t diag_led_flags_0mW[64] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                                         0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
                                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-// LSS
+// Long                  Short     Short
 // XXXXXXXXXXXXXXXX------XXXX------XXXX---------------------------
 const uint8_t diag_led_flags_pit[64] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                                         0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
@@ -349,26 +353,9 @@ void Setting_Save() {
         err |= I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_LPMODE, LP_MODE);
         err |= I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_PITMODE, PIT_MODE);
         err |= I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_25MW, OFFSET_25MW);
-        err |= I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_BAUDRATE, BAUDRATE);
         err |= I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_TEAM_RACE, TEAM_RACE);
         err |= I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_SHORTCUT, SHORTCUT);
-#ifdef _DEBUG_MODE
-        if (!err)
-            debugf("\r\nEEPROM write success");
-#endif
     }
-
-#ifdef _DEBUG_MODE
-    debugf("\r\nSetting Save\r\n");
-    debugf("    RF_FREQ=%d\r\n", (uint16_t)RF_FREQ);
-    debugf("    RF_POWER=%d\r\n", (uint16_t)RF_POWER);
-    debugf("    LP_MODE=%d\r\n", (uint16_t)LP_MODE);
-    debugf("    PIT_MODE=%d\r\n", (uint16_t)PIT_MODE);
-    debugf("    OFFSET_25MW=%d\r\n", (uint16_t)OFFSET_25MW);
-    debugf("    BAUDRATE=%d\r\n", (uint16_t)BAUDRATE);
-    debugf("    TEAM_RACE=%d\r\n", (uint16_t)TEAM_RACE);
-    debugf("    SHORTCUT=%d\r\n", (uint16_t)SHORTCUT);
-#endif
 }
 
 void CFG_Back() {
@@ -385,7 +372,6 @@ void CFG_Back() {
 #else
     OFFSET_25MW = (OFFSET_25MW > 20) ? 0 : OFFSET_25MW;
 #endif
-    BAUDRATE = (BAUDRATE > 1) ? 0 : BAUDRATE;
     TEAM_RACE = (TEAM_RACE > 2) ? 0 : TEAM_RACE;
     SHORTCUT = (SHORTCUT > 1) ? 0 : SHORTCUT;
 }
@@ -400,16 +386,12 @@ void GetVtxParameter() {
 
     EE_VALID = !I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_EEP_VLD, 0xFF);
 
-#ifdef _DEBUG_MODE
-    debugf("\r\nEE_VALID:%x", (uint16_t)EE_VALID);
-#endif
-
     if (EE_VALID) { // eeprom valid
 
 #ifdef FIX_EEP
         for (i = 0; i < FREQ_NUM_INTERNAL; i++) {
             for (j = 0; j <= POWER_MAX; j++) {
-                I2C_Write8_Wait(10, ADDR_EEPROM, i * (POWER_MAX + 1) + j, table_power[0][i][j]);
+                I2C_Write8_Wait(10, ADDR_EEPROM, i * (POWER_MAX + 1) + j, table_power[i][j]);
             }
         }
 #endif
@@ -440,9 +422,6 @@ void GetVtxParameter() {
         }
 
         if (ee_vld) {
-#ifdef _DEBUG_MODE
-            debugf("\r\nUSE EEPROM for rf_pwr_tab.");
-#endif
             for (i = 0; i < FREQ_NUM_EXTERNAL; i++) {
                 for (j = 0; j <= POWER_MAX; j++) {
                     table_power[i][j] = tab[i][j];
@@ -456,9 +435,6 @@ void GetVtxParameter() {
                 }
             }
         } else {
-#ifdef _DEBUG_MODE
-            debugf("\r\nEEPROM is NOT initialized. Use default rf_pwr_tab.");
-#endif
 
 #ifdef _RF_CALIB
             for (i = 0; i < FREQ_NUM_INTERNAL; i++) {
@@ -486,17 +462,7 @@ void GetVtxParameter() {
 #endif
         TEAM_RACE = I2C_Read8(ADDR_EEPROM, EEP_ADDR_TEAM_RACE);
         SHORTCUT = I2C_Read8(ADDR_EEPROM, EEP_ADDR_SHORTCUT);
-#ifdef USE_TRAMP
-        // tramp protocol need 115200 bps.
-        BAUDRATE = 0;
-#else
-        BAUDRATE = I2C_Read8(ADDR_EEPROM, EEP_ADDR_BAUDRATE);
-#endif
         CFG_Back();
-
-#ifdef _DEBUG_MODE
-        debugf("\r\nUSE EEPROM for VTX setting:RF_FREQ=%d, RF_POWER=%d, LPMODE=%d PIT_MODE=%d", (uint16_t)RF_FREQ, (uint16_t)RF_POWER, (uint16_t)LP_MODE, (uint16_t)PIT_MODE);
-#endif
 
 // last_SA_lock
 #if defined USE_SMARTAUDIO_SW || defined USE_SMARTAUDIO_HW
@@ -505,9 +471,6 @@ void GetVtxParameter() {
             last_SA_lock = 0;
             I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_SA_LOCK, last_SA_lock);
         }
-#ifdef _DEBUG_MODE
-        debugf("\r\nlast_SA_lock %x", (uint16_t)last_SA_lock);
-#endif
 #endif
 
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
@@ -517,15 +480,6 @@ void GetVtxParameter() {
     } else {
         CFG_Back();
     }
-
-#ifdef _DEBUG_DM6300
-    for (i = 0; i < FREQ_NUM_EXTERNAL; i++) {
-        debugf("\r\nrf_pwr_tab[%d]=", (uint16_t)i);
-        for (j = 0; j <= POWER_MAX; j++)
-            debugf(" %x", (uint16_t)table_power[i][j]);
-    }
-    debugf("\r\nUSE EEPROM for VTX setting:RF_FREQ=%d, RF_POWER=%d, LPMODE=%d PIT_MODE=%d", (uint16_t)RF_FREQ, (uint16_t)RF_POWER, (uint16_t)LP_MODE, (uint16_t)PIT_MODE);
-#endif
 }
 
 void Init_6300RF(uint8_t freq, uint8_t pwr) {
@@ -546,13 +500,9 @@ void Init_6300RF(uint8_t freq, uint8_t pwr) {
     }
     WriteReg(0, 0x8F, 0x11);
     rf_delay_init_done = 1;
-#ifdef _DEBUG_MODE
-    debugf("\r\nInit_6300RF(%x, %x)", (uint16_t)freq, (uint16_t)pwr);
-#endif
 }
 
 void Init_HW() {
-    WAIT(100);
     SPI_Init();
     LED_Init();
 #ifdef VIDEO_PAT
@@ -584,8 +534,6 @@ void Init_HW() {
     GetVtxParameter();
     Get_EEP_LifeTime();
     camera_init();
-
-    uart_set_baudrate(BAUDRATE);
 //--------- dm6300 --------------------
 // move to RF_Delay_Init()
 #endif
@@ -622,16 +570,14 @@ void TempDetect() {
 #ifdef HDZERO_ECO
             if (temp_new > 10)
                 temp_new -= 10;
+#elif defined HDZERO_AIO5
+            if (temp_new > 15)
+                temp_new -= 15;
 #endif
 
             temperature = temperature - (temperature >> 2) + temp_new;
 
             temp0 = temp0 - (temp0 >> 2) + temp_new0;
-
-#ifdef _DEBUG_MODE
-// verbosef("\r\ntempADC  detect: temp = %d, temp_new = %d", (uint16_t)(temperature>>2), (uint16_t)temp_new);
-// verbosef("\r\ntemp6300 detect: temp = 0x%x, temp_new = 0x%x", (uint16_t)(temp0>>2), (uint16_t)temp_new0);
-#endif
         }
     }
 }
@@ -651,10 +597,6 @@ void TempDetect() {
         } else {
             temp_new = DM6300_GetTemp();
             temperature = temperature - (temperature >> 2) + temp_new;
-
-#ifdef _DEBUG_MODE
-// verbosef("\r\ntemp detect: temp = %x, temp_new = %x", (uint16_t)(temperature>>2), (uint16_t)temp_new);
-#endif
         }
     }
 }
@@ -734,10 +676,6 @@ void PowerAutoSwitch() {
         ;
     else {
         DM6300_SetPower(RF_POWER, RF_FREQ, pwr_offset);
-#ifdef _DEBUG_MODE
-        verbosef("\r\nPowerAutoSwitch: temp = %x%x, ", (uint16_t)(temperature >> 10), (uint16_t)((temperature >> 2) & 0xff));
-        verbosef("pwr_offset = %d", (uint16_t)pwr_offset);
-#endif
         cur_pwr = RF_POWER;
     }
 }
@@ -848,15 +786,9 @@ void PowerAutoSwitch() {
     }
 
     if (last_ofs != pwr_offset) {
-#ifdef _DEBUG_MODE
-        verbosef("\r\nPowerAutoSwitch:Yes 0x%x 0x%x", temp, (uint16_t)pwr_offset);
-#endif
         DM6300_SetPower(RF_POWER, RF_FREQ, pwr_offset);
         cur_pwr = RF_POWER;
     } else {
-#ifdef _DEBUG_MODE
-        verbosef("\r\nPowerAutoSwitch: No 0x%x 0x%x", temp, (uint16_t)pwr_offset);
-#endif
     }
 
     last_ofs = pwr_offset;
@@ -888,14 +820,6 @@ void HeatProtect() {
                     sec = 0;
                     temp = temperature >> 2;
 // temp = temperature >> 5;  //LM75AD
-#ifdef _DEBUG_MODE
-#ifdef USE_TEMPERATURE_SENSOR
-                    verbosef("\r\nHeat detect: temp = %d, pwr_offset=%d", (uint16_t)temp, (uint16_t)pwr_offset);
-#else
-                    // verbosef("\r\nHeat Protect detect: 0x%x", temp);
-#endif
-#endif
-
 #ifdef USE_TEMPERATURE_SENSOR
                     ;
 #else
@@ -913,9 +837,6 @@ void HeatProtect() {
                     {
                         cnt++;
                         if (cnt == 3) {
-#ifdef _DEBUG_MODE
-                            debugf("\r\nHeat Protect.");
-#endif
                             heat_protect = 1;
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
                             WriteReg(0, 0x8F, 0x00);
@@ -969,17 +890,12 @@ void PwrLMT() {
                                 p = table_power[RF_FREQ][3];
                             } else {
                                 p += 0x4;
-                                debugf("\r\npwr_plus 2dbm,p=%x", (uint16_t)p);
                             }
 
                             SPI_Write(0x3, 0xD1C, (uint32_t)p);
                             SPI_Write(0x3, 0x330, 0x31F); // 1W
                         }
                     }
-#endif
-
-#ifdef _DEBUG_MODE
-                    debugf("\r\npwr_lmt_sec %x", (uint16_t)pwr_lmt_sec);
 #endif
                     if (pwr_lmt_sec >= PWR_LMT_SEC) {
                         DM6300_SetPower(RF_POWER, RF_FREQ, pwr_offset);
@@ -988,10 +904,6 @@ void PwrLMT() {
                         pwr_lmt_sec = 0;
                         // test: power init reset
                         p_init = 1;
-
-#ifdef _DEBUG_MODE
-                        debugf("\r\nPower limit done.");
-#endif
                         Prompt();
                     }
                 }
@@ -1041,7 +953,6 @@ void PwrLMT() {
                                     p = table_power[RF_FREQ][3];
                                 else {
                                     p += 0x4;
-                                    debugf("\r\npwr_plus 2dbm,p=%x", (uint16_t)p + pwr_offset);
                                 }
                                 SPI_Write(0x3, 0xD1C, (uint32_t)(p + pwr_offset)); // digital offset
                                 SPI_Write(0x3, 0x330, 0x31F);                      // analog offset 1W
@@ -1049,9 +960,6 @@ void PwrLMT() {
                         }
 #endif // HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
 
-#ifdef _DEBUG_MODE
-                        debugf("\r\npwr_lmt_sec %x", (uint16_t)pwr_lmt_sec);
-#endif
                         if (pwr_lmt_sec >= PWR_LMT_SEC) {
                             DM6300_SetPower(RF_POWER, RF_FREQ, pwr_offset);
                             cur_pwr = RF_POWER;
@@ -1060,9 +968,6 @@ void PwrLMT() {
                             // test: power init reset
                             p_init = 1;
 
-#ifdef _DEBUG_MODE
-                            debugf("\r\nPower limit done.");
-#endif
                             Prompt();
                         }
                     }
@@ -1098,59 +1003,6 @@ void video_detect(void) {
         last_sec = seconds;
         sec++;
 
-#ifdef _DEBUG_TC3587
-        debugf("\r\nTC3587 reg:");
-        val = I2C_Read16(ADDR_TC3587, 0x0062);
-        debugf("\r\n0x0062 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0064);
-        debugf("\r\n0x0064 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0066);
-        debugf("\r\n0x0066 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0068);
-        debugf("\r\n0x0068 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x006A);
-        debugf("\r\n0x006A = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x006C);
-        debugf("\r\n0x006C = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x006E);
-        debugf("\r\n0x006E = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0070);
-        debugf("\r\n0x0070 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0080);
-        debugf("\r\n0x0080 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0082);
-        debugf("\r\n0x0082 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0084);
-        debugf("\r\n0x0084 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0086);
-        debugf("\r\n0x0086 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0088);
-        debugf("\r\n0x0088 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x008A);
-        debugf("\r\n0x008A = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x008C);
-        debugf("\r\n0x008C = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x008E);
-        debugf("\r\n0x008E = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x0090);
-        debugf("\r\n0x0090 = 0x%x", val);
-        val = I2C_Read16(ADDR_TC3587, 0x00F8);
-        debugf("\r\n0x00F8 = 0x%x", val);
-        debugf("\r\n");
-        I2C_Write16(ADDR_TC3587, 0x0064, 0x01ff);
-        I2C_Write16(ADDR_TC3587, 0x0068, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x006C, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x0080, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x0082, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x0084, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x0086, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x0088, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x008A, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x008C, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x008E, 0x0000);
-        I2C_Write16(ADDR_TC3587, 0x0090, 0x0000);
-#endif
-
         if (heat_protect)
             return;
 #if (0)
@@ -1174,9 +1026,6 @@ void video_detect(void) {
                 WAIT(1);
             }
             cameraLost = (video_type_id != 0x1E); // YUV422
-#ifdef _DEBUG_CAMERA
-            debugf("\r\nvideo_TypeID:%d, cameraLost:%d", video_type_id, uint16_t(val));
-#endif
             return;
         }
 
@@ -1189,9 +1038,6 @@ void video_detect(void) {
         if (sec == 3) {
             sec = 0;
             if (cameraLost) { // video loss
-#ifdef _DEBUG_CAMERA
-                debugf("r\ncamera lost");
-#endif
                 if (video_format == VDO_FMT_720P50) {
                     Set_720P60(IS_RX);
                     video_format = VDO_FMT_720P60;
@@ -1220,17 +1066,11 @@ void Imp_RF_Param() {
 }
 
 void Button1_SP() {
-#ifdef _DEBUG_MODE
-    debugf("\r\nButton1_SP.");
-#endif
 
     cfg_to_cnt = 0;
 
     // exit 0mW
     if (vtx_pit_save == PIT_0MW) {
-#ifdef _DEBUG_MODE
-        debugf("\n\rDM6300 init");
-#endif
         Init_6300RF(RF_FREQ, RF_POWER);
         DM6300_AUXADC_Calib();
         cur_pwr = RF_POWER;
@@ -1312,9 +1152,6 @@ void Button1_SP() {
         if (LP_MODE) {
             DM6300_SetPower(0, RF_FREQ, 0); // limit power to 25mW
             cur_pwr = 0;
-#ifdef _DEBUG_MODE
-            debugf("\n\rEnter LP_MODE");
-#endif
         } else {
             DM6300_SetPower(RF_POWER, RF_FREQ, 0);
         }
@@ -1324,13 +1161,9 @@ void Button1_SP() {
         Setting_Save();
         break;
     }
-    // debugf("\r\nShort Press: cfg_step=%d, RF_FREQ=%d, RF_POWER=%d", (uint16_t)cfg_step, (uint16_t)RF_FREQ, (uint16_t)RF_POWER);
 }
 
 void Button1_LP() {
-#ifdef _DEBUG_MODE
-    debugf("\r\nButton1_LP.");
-#endif
     cfg_to_cnt = 0;
     switch (cfg_step) {
     case 0:
@@ -1350,13 +1183,9 @@ void Button1_LP() {
         set_segment(0xFF);
         break;
     }
-    // debugf("\r\nShort Press: cfg_step=%d, FREQ_CFG=%d, POWER_CFG=%d", (uint16_t)cfg_step, (uint16_t)FREQ_CFG, (uint16_t)POWER_CFG);
 }
 
 void Button1_LLP() {
-#ifdef _DEBUG_MODE
-    debugf("\r\nButton1_LLP.");
-#endif
     cfg_to_cnt = 0;
     if (cfg_step == 0) {
         cfg_step = 3;
@@ -1438,9 +1267,6 @@ void CFGTimeout() {
                 cfg_step = 0;
 
                 set_segment(0xFF);
-#ifdef _DEBUG_MODE
-                debugf("\r\nCFG Timeout.");
-#endif
                 Prompt();
             }
         }
@@ -1582,9 +1408,6 @@ uint8_t RF_BW_to_be_changed(void) {
         RF_BW_last = RF_BW;
         ret = 1;
     }
-#ifdef _DEBUG_MODE
-    debugf("\r\ncamera_type:%x, video_mode:%x, RF_BW:%x, RF_BW_last:%x ret=%x", (uint16_t)camera_type, (uint16_t)camera_setting_reg_set[11], (uint16_t)RF_BW, (uint16_t)RF_BW_last, (uint16_t)ret);
-#endif
     return ret;
 }
 
@@ -1597,10 +1420,14 @@ void uart_baudrate_detect(void) {
     if (!msp_tx_en) {
         if (seconds - msp_lst_rcv_sec > 2) {
             msp_lst_rcv_sec = seconds;
+
             BAUDRATE++;
-            CFG_Back();
+            if (BAUDRATE > 1)
+                BAUDRATE = 0;
+
             uart_set_baudrate(BAUDRATE);
-            Setting_Save();
+
+            I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_BAUDRATE, BAUDRATE);
         }
     }
 #endif
@@ -1609,9 +1436,6 @@ void uart_baudrate_detect(void) {
 void vtx_paralized(void) {
     // Sleep until repower
     WriteReg(0, 0x8F, 0x00);
-#ifdef _DEBUG_MODE
-    debugf("\r\nvtx paralized");
-#endif
     while (1) {
         LED_Flip();
         WAIT(50);
@@ -1665,9 +1489,6 @@ void RF_Delay_Init() {
         if (seconds >= WAIT_SA_CONFIG) {
             I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_SA_LOCK, SA_lock);
             SA_saved = 1;
-#ifdef _DEBUG_MODE
-            debugf("\r\nSave SA_lock(%x) to EEPROM", (uint16_t)SA_lock);
-#endif
         }
     }
 
@@ -1687,9 +1508,6 @@ void RF_Delay_Init() {
         rf_delay_init_done = 1;
 
     if (last_SA_lock) {
-#ifdef _DEBUG_MODE
-        debugf("\r\nRF_Delay_Init: SA");
-#endif
         pwr_lmt_sec = PWR_LMT_SEC;
         if (SA_lock) {
             if (pwr_init == POWER_MAX + 2) { // 0mW
@@ -1697,21 +1515,12 @@ void RF_Delay_Init() {
                 cur_pwr = POWER_MAX + 2;
             } else if (PIT_MODE) {
                 Init_6300RF(ch_init, POWER_MAX + 1);
-#ifdef _DEBUG_MODE
-                debugf("\r\n ch%x, pwr%x", (uint16_t)ch_init, (uint16_t)cur_pwr);
-#endif
             } else {
                 Init_6300RF(ch_init, pwr_init);
-#ifdef _DEBUG_MODE
-                debugf("\r\n ch%x, pwr%x", (uint16_t)ch_init, (uint16_t)cur_pwr);
-#endif
             }
             DM6300_AUXADC_Calib();
         }
     } else if (!mspVtxLock) {
-#ifdef _DEBUG_MODE
-        debugf("\r\nRF_Delay_Init: None");
-#endif
         if (TEAM_RACE == 0x01)
             vtx_paralized();
 #if (0)
@@ -1739,6 +1548,7 @@ void RF_Delay_Init() {
         DM6300_AUXADC_Calib();
     }
 }
+
 void reset_config() {
     RF_FREQ = 0;
     RF_POWER = 0;
@@ -1785,3 +1595,178 @@ uint8_t check_uart_loopback() {
     }
 }
 #endif
+
+#ifdef USE_USB_DET
+typedef void (*reset_mcu_ptr)(void);
+reset_mcu_ptr reset_mcu = (reset_mcu_ptr)0x0000;
+
+void usb_det_task() {
+    if (USB_DET == 1) {
+        LED_BLUE_OFF;
+        WriteReg(0, 0x8F, 0x10); // reset RF_chip
+        while (USB_DET == 1) {
+            WAIT(1);
+        }
+        // reset 5680
+        reset_mcu();
+    }
+}
+#endif
+
+#if (0)
+void _outstring(char *string) {
+    uint8_t i = 0;
+    for (i = 0; i < 128; i++) {
+        if (string[i] == 0)
+            break;
+        else
+            _outchar(string[i]);
+    }
+}
+#endif
+void check_eeprom() {
+    const uint8_t tab_base_address[3] = {
+        EEP_ADDR_TAB1,
+        EEP_ADDR_TAB2,
+        EEP_ADDR_TAB3,
+    };
+    const uint8_t dcoc_base_address[3] = {
+        EEP_ADDR_DCOC1,
+        EEP_ADDR_DCOC2,
+        EEP_ADDR_DCOC3,
+    };
+    const uint8_t tab_range[2] = {20, 160};
+    const uint8_t dcoc_range[2] = {80, 180};
+
+    uint8_t reg[3];
+    uint8_t ff_cnt[3];
+    uint8_t i, j, k;
+
+    // read all 3 table_power partitions
+    for (i = 0; i < 3; i++) {
+        ff_cnt[i] = 0;
+        for (j = 0; j < FREQ_NUM_INTERNAL; j++) {
+            for (k = 0; k < POWER_MAX + 1; k++) {
+                ff_cnt[i] += (I2C_Read8(ADDR_EEPROM, tab_base_address[i] + j * (POWER_MAX + 1) + k) == 0xff);
+            }
+        }
+    }
+
+#if (0)
+    // If eeprom is new, init partition 0 with default table_power
+    if (ff_cnt[0] == (FREQ_NUM_INTERNAL * (POWER_MAX + 1))) {
+        for (j = 0; j < FREQ_NUM_INTERNAL; j++) {
+            for (k = 0; k < POWER_MAX + 1; k++) {
+                I2C_Write8_Wait(10, ADDR_EEPROM, tab_base_address[0] + j * (POWER_MAX + 1) + k, table_power[j][k]);
+            }
+        }
+        _outstring("\r\nInit tab partition 0");
+    }
+#endif
+
+    // Init partition 1/2 by copy paratition 0 if is needed (one time)
+    if ((ff_cnt[1] + ff_cnt[2]) > (FREQ_NUM_INTERNAL * (POWER_MAX + 1))) {
+        for (j = 0; j < FREQ_NUM_INTERNAL; j++) {
+            for (k = 0; k < POWER_MAX + 1; k++) {
+                reg[0] = I2C_Read8(ADDR_EEPROM, tab_base_address[0] + j * (POWER_MAX + 1) + k);
+                for (i = 1; i < 3; i++) {
+                    I2C_Write8_Wait(10, ADDR_EEPROM, tab_base_address[i] + j * (POWER_MAX + 1) + k, reg[0]);
+                }
+            }
+        }
+        //_outstring("\r\nInit tab partition 1, 2");
+    }
+
+    // Check the validity of each value
+    for (i = 0; i < FREQ_NUM_INTERNAL; i++) {
+        for (j = 0; j < POWER_MAX + 1; j++) {
+
+            reg[0] = I2C_Read8(ADDR_EEPROM, tab_base_address[0] + i * (POWER_MAX + 1) + j);
+            reg[1] = I2C_Read8(ADDR_EEPROM, tab_base_address[1] + i * (POWER_MAX + 1) + j);
+            reg[2] = I2C_Read8(ADDR_EEPROM, tab_base_address[2] + i * (POWER_MAX + 1) + j);
+
+            if (reg[0] == reg[1] && reg[1] == reg[2] && reg[0] > tab_range[0] && reg[0] < tab_range[1])
+                // all partition are right
+                ;
+            else if (reg[0] == reg[1] && reg[1] != reg[2] && reg[0] > tab_range[0] && reg[0] < tab_range[1]) {
+                // partition 2 value is error
+                I2C_Write8_Wait(10, ADDR_EEPROM, tab_base_address[2] + i * (POWER_MAX + 1) + j, reg[0]);
+            } else if (reg[0] == reg[2] && reg[1] != reg[2] && reg[0] > tab_range[0] && reg[0] < tab_range[1]) {
+                // partition 1 value is error
+                I2C_Write8_Wait(10, ADDR_EEPROM, tab_base_address[1] + i * (POWER_MAX + 1) + j, reg[0]);
+            } else if (reg[0] != reg[2] && reg[1] == reg[2] && reg[1] > tab_range[0] && reg[1] < tab_range[1]) {
+                // partition 0 value is error
+                I2C_Write8_Wait(10, ADDR_EEPROM, tab_base_address[0] + i * (POWER_MAX + 1) + j, reg[1]);
+            } else {
+                I2C_Write8_Wait(10, ADDR_EEPROM, tab_base_address[0] + i * (POWER_MAX + 1) + j, table_power[i][j]);
+                I2C_Write8_Wait(10, ADDR_EEPROM, tab_base_address[1] + i * (POWER_MAX + 1) + j, table_power[i][j]);
+                I2C_Write8_Wait(10, ADDR_EEPROM, tab_base_address[2] + i * (POWER_MAX + 1) + j, table_power[i][j]);
+            }
+        }
+    }
+
+    // read all 3 dcoc partitions
+    for (i = 0; i < 3; i++) {
+        ff_cnt[i] = 0;
+        for (j = 0; j < 5; j++) {
+            ff_cnt[i] += (I2C_Read8(ADDR_EEPROM, dcoc_base_address[i] + j) == 0xff);
+        }
+    }
+
+    if (ff_cnt[0] == 3)
+        return;
+    // Init partition 1/2 by copy paratition 0 if is needed (one time)
+    if ((ff_cnt[1] + ff_cnt[2]) > 5) {
+        for (j = 0; j < 5; j++) {
+            reg[0] = I2C_Read8(ADDR_EEPROM, dcoc_base_address[0] + j);
+            for (i = 1; i < 3; i++) {
+                I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[i] + j, reg[0]);
+            }
+        }
+        //_outstring("\r\nInit dcoc partition 1, 2");
+    }
+
+    // Check the validity of each value
+    reg[0] = I2C_Read8(ADDR_EEPROM, dcoc_base_address[0] + 0);
+    reg[1] = I2C_Read8(ADDR_EEPROM, dcoc_base_address[1] + 0);
+    reg[2] = I2C_Read8(ADDR_EEPROM, dcoc_base_address[2] + 0);
+    if (reg[0] == reg[1] && reg[1] == reg[2] && reg[0] == 0x00) {
+        ;
+    } else {
+        I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[0], 0);
+        I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[1], 0);
+        I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[2], 0);
+        //_outstring("\r\ndcoc en err");
+    }
+
+    for (i = 1; i < 5; i++) {
+        reg[0] = I2C_Read8(ADDR_EEPROM, dcoc_base_address[0] + i);
+        reg[1] = I2C_Read8(ADDR_EEPROM, dcoc_base_address[1] + i);
+        reg[2] = I2C_Read8(ADDR_EEPROM, dcoc_base_address[2] + i);
+        if (reg[0] == reg[1] && reg[1] == reg[2] && reg[0] > dcoc_range[0] && reg[0] < dcoc_range[1])
+            // all partition are right
+            ;
+        else if (reg[0] == reg[1] && reg[1] != reg[2] && reg[0] > dcoc_range[0] && reg[0] < dcoc_range[1]) {
+            // partition 2 value is error
+            I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[2] + i, reg[0]);
+            //_outstring("\r\ndcoc2:");
+            //_outchar('0' + i);
+        } else if (reg[0] != reg[1] && reg[1] == reg[2] && reg[1] > dcoc_range[0] && reg[1] < dcoc_range[1]) {
+            // partition 0 value is error
+            I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[0] + i, reg[1]);
+            //_outstring("\r\ndcoc0:");
+            //_outchar('0' + i);
+        } else if (reg[0] != reg[1] && reg[0] == reg[2] && reg[0] > dcoc_range[0] && reg[0] < dcoc_range[1]) {
+            // partition 1 value is error
+            I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[1] + i, reg[0]);
+            //_outstring("\r\ndcoc1:");
+            //_outchar('0' + i);
+        } else {
+            I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[0] + i, 128);
+            I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[1] + i, 128);
+            I2C_Write8_Wait(10, ADDR_EEPROM, dcoc_base_address[2] + i, 128);
+            //_outstring("\r\ndcoc all:");
+            //_outchar('0' + i);
+        }
+    }
+}

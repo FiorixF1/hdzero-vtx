@@ -13,9 +13,9 @@
 #include "uart.h"
 #include "version.h"
 
-uint8_t osd_buf[HD_VMAX1][HD_HMAX1];
-uint8_t loc_buf[HD_VMAX1][7];
-uint8_t page_extend_buf[HD_VMAX1][7];
+uint8_t osd_buf[OSD_CANVAS_HD_VMAX1][OSD_CANVAS_HD_HMAX1];
+uint8_t loc_buf[OSD_CANVAS_HD_VMAX1][7];
+uint8_t page_extend_buf[OSD_CANVAS_HD_VMAX1][7];
 uint8_t tx_buf[TXBUF_SIZE]; // buffer for sending data to VRX
 uint8_t dptxbuf[256];
 uint8_t dptx_rptr, dptx_wptr;
@@ -69,6 +69,10 @@ uint8_t mspVtxLock = 0;
 uint8_t init_table_done = 0;
 uint8_t init_table_unsupported = 0;
 
+#ifdef USE_TP9950
+uint16_t cam_menu_timeout_sec = 0;
+#endif
+
 uint8_t crc8tab[256] = {
     0x00, 0xD5, 0x7F, 0xAA, 0xFE, 0x2B, 0x81, 0x54, 0x29, 0xFC, 0x56, 0x83, 0xD7, 0x02, 0xA8, 0x7D,
     0x52, 0x87, 0x2D, 0xF8, 0xAC, 0x79, 0xD3, 0x06, 0x7B, 0xAE, 0x04, 0xD1, 0x85, 0x50, 0xFA, 0x2F,
@@ -102,7 +106,7 @@ void parse_get_osd_canvas(void);
 
 void msp_tx(uint8_t c) {
     if (msp_tx_en || seconds > 3)
-        RS_tx(c);
+        CMS_tx(c);
 }
 
 uint8_t msp_cmp_fc_variant(const char *variant) {
@@ -116,8 +120,8 @@ uint8_t msp_cmp_fc_variant(const char *variant) {
 }
 
 uint8_t hdzero_dynamic_osd_refresh_adapter(uint8_t t1) {
-    static uint16_t osd_line_crc_lst[HD_VMAX1] = {0};
-    static uint8_t refresh_cnt[HD_VMAX1] = {0};
+    static uint16_t osd_line_crc_lst[OSD_CANVAS_HD_VMAX1] = {0};
+    static uint8_t refresh_cnt[OSD_CANVAS_HD_VMAX1] = {0};
     uint8_t crc_u8[2] = {0, 0};
     uint16_t crc_u16 = 0;
     uint8_t i;
@@ -149,25 +153,20 @@ uint8_t hdzero_dynamic_osd_refresh_adapter(uint8_t t1) {
 
 void msp_task() {
     uint8_t len;
+    static uint16_t last_sec = 0;
     static uint8_t t1 = 0;
-    static uint8_t vmax = SD_VMAX;
+    static uint8_t vmax = OSD_CANVAS_SD_VMAX;
 
-#ifdef _DEBUG_DISPLAYPORT
-    if (RS0_ERR) {
-        RS0_ERR = 0;
-        _outchar('$'); // RS0 buffer full
-    }
-#endif
     DP_tx_task();
 
     // decide by osd_frame size/rate and dptx rate
     if (msp_read_one_frame()) {
         if (resolution == HD_5018) {
-            vmax = HD_VMAX0;
+            vmax = OSD_CANVAS_HD_VMAX0;
         } else if (resolution == HD_5320) {
-            vmax = HD_VMAX1;
+            vmax = OSD_CANVAS_HD_VMAX1;
         } else {
-            vmax = SD_VMAX;
+            vmax = OSD_CANVAS_SD_VMAX;
         }
     }
 
@@ -176,10 +175,6 @@ void msp_task() {
         len = get_tx_data_osd(t1);
         if (hdzero_dynamic_osd_refresh_adapter(t1))
             insert_tx_buf(len);
-
-#ifdef _DEBUG_DISPLAYPORT
-// debugf("\n\r%x ", (uint16_t)t1);
-#endif
         t1++;
         if (t1 >= vmax)
             t1 = 0;
@@ -236,20 +231,16 @@ uint8_t msp_read_one_frame() {
 
         switch (state) {
         case MSP_HEADER_START:
-            if (rx == MSP_HEADER_START_BYTE) {
+            if (rx == MSP_HEADER_FRAMER) {
                 ptr = 0;
                 state = MSP_HEADER_M;
             }
-#ifdef _DEBUG_DISPLAYPORT
-            else
-                _outchar('&');
-#endif
             break;
 
         case MSP_HEADER_M:
-            if (rx == MSP_HEADER_M_BYTE) {
+            if (rx == MSP_HEADER_V1) {
                 state = MSP_PACKAGE_REPLAY1;
-            } else if (rx == MSP_HEADER_M2_BYTE) {
+            } else if (rx == MSP_HEADER_V2) {
                 state = MSP_PACKAGE_REPLAY2;
             } else {
                 state = MSP_HEADER_START;
@@ -257,7 +248,7 @@ uint8_t msp_read_one_frame() {
             break;
 
         case MSP_PACKAGE_REPLAY1: // 0x3E
-            if (rx == MSP_PACKAGE_REPLAY_BYTE) {
+            if (rx == MSP_HEADER_RESPONSE) {
                 state = MSP_LENGTH;
             } else {
                 state = MSP_HEADER_START;
@@ -273,17 +264,17 @@ uint8_t msp_read_one_frame() {
 
         case MSP_CMD:
             crc ^= rx;
-            if (rx == MSP_CMD_DISPLAYPORT_BYTE) {
+            if (rx == MSP_DISPLAYPORT) {
                 cur_cmd = CUR_DISPLAYPORT;
-            } else if (rx == MSP_CMD_RC_BYTE) {
+            } else if (rx == MSP_RC) {
                 cur_cmd = CUR_RC;
-            } else if (rx == MSP_CMD_STATUS_BYTE) {
+            } else if (rx == MSP_STATUS) {
                 cur_cmd = CUR_STATUS;
-            } else if (rx == MSP_CMD_FC_VARIANT_BYTE) {
+            } else if (rx == MSP_FC_VARIANT) {
                 cur_cmd = CUR_FC_VARIANT;
-            } else if (rx == MSP_CMD_VTX_CONFIG_BYTE) {
+            } else if (rx == MSP_GET_VTX_CONFIG) {
                 cur_cmd = CUR_VTX_CONFIG;
-            } else if (rx == MSP_CMD_GET_OSD_CANVAS_BYTE) {
+            } else if (rx == MSP_GET_OSD_CANVAS) {
                 cur_cmd = CUR_GET_OSD_CANVAS;
             } else
                 cur_cmd = CUR_OTHERS;
@@ -292,7 +283,6 @@ uint8_t msp_read_one_frame() {
                 state = MSP_CRC1;
             else
                 state = MSP_RX1;
-            // debugf("\r\ncmd:%x ", (uint16_t)rx);
             break;
 
         case MSP_RX1:
@@ -334,15 +324,11 @@ uint8_t msp_read_one_frame() {
                     }
                 }
             }
-#ifdef _DEBUG_DISPLAYPORT
-            else
-                _outchar('^');
-#endif
             state = MSP_HEADER_START;
             break;
 
         case MSP_PACKAGE_REPLAY2: // 0x3E
-            if (rx == MSP_PACKAGE_REPLAY_BYTE) {
+            if (rx == MSP_HEADER_RESPONSE) {
                 state = MSP_ZERO;
             } else {
                 state = MSP_HEADER_START;
@@ -379,8 +365,12 @@ uint8_t msp_read_one_frame() {
         case MSP_LEN_H:
             crc = crc8tab[crc ^ rx];
             len_u16 += ((uint16_t)rx << 8);
-            ptr = 0;
-            state = MSP_RX2;
+            if (len_u16 == 0) {
+                state = MSP_CRC2;
+            } else {
+                ptr = 0;
+                state = MSP_RX2;
+            }
             break;
 
         case MSP_RX2:
@@ -388,14 +378,34 @@ uint8_t msp_read_one_frame() {
             msp_rx_buf[ptr++] = rx;
             ptr &= 63;
             len_u16--;
-            if (len_u16 == 0)
+            if (len_u16 == 0) {
                 state = MSP_CRC2;
+            }
             break;
 
         case MSP_CRC2:
             if (crc == rx) {
                 full_frame = 1;
-                parseMspVtx_V2(cmd_u16);
+                switch (cmd_u16) {
+                case MSP_VTX_GET_MODEL_NAME:
+                    msp_send_vtx_model_name();
+                    break;
+                case MSP_VTX_GET_FC_VARIANT:
+                    msp_send_vtx_fc_variant();
+                    break;
+                case MSP_VTX_GET_FW_VERSION:
+                    msp_send_vtx_fw_version();
+                    break;
+                case MSP_VTX_GET_TEMPERATURE:
+                    msp_send_vtx_temperature();
+                    break;
+                case MSP_VTX_GET_HW_FAULTS:
+                    msp_send_vtx_hw_faults();
+                    break;
+                default:
+                    parseMspVtx_V2(cmd_u16);
+                    break;
+                }
                 msp_lst_rcv_sec = seconds;
                 msp_tx_en = 1;
             }
@@ -406,7 +416,7 @@ uint8_t msp_read_one_frame() {
             state = MSP_HEADER_START;
             break;
         } // switch(state)
-    }     // i
+    } // i
     return ret;
 }
 
@@ -418,7 +428,7 @@ void clear_screen() {
 
 void write_string(uint8_t rx, uint8_t row, uint8_t col, uint8_t page_extend) {
     if (disp_mode == DISPLAY_OSD) {
-        if (row < HD_VMAX1 && col < HD_HMAX1) {
+        if (row < OSD_CANVAS_HD_VMAX1 && col < OSD_CANVAS_HD_HMAX1) {
             osd_buf[row][col] = rx;
             if (page_extend)
                 page_extend_buf[row][col >> 3] |= (1 << (col & 0x07));
@@ -568,17 +578,17 @@ uint8_t get_tx_data_osd(uint8_t index) // prepare osd+data to VTX
     uint8_t num = 0;
 
     if (resolution == HD_5018) {
-        hmax = HD_HMAX0;
+        hmax = OSD_CANVAS_HD_HMAX0;
         len_mask = 7;
         ptr = 11;
     } else if (resolution == HD_5320) {
-        hmax = HD_HMAX1;
+        hmax = OSD_CANVAS_HD_HMAX1;
         len_mask = 7;
         ptr = 11;
     } else {
         ptr = 12;
         len_mask = 4;
-        hmax = SD_HMAX;
+        hmax = OSD_CANVAS_SD_HMAX;
     }
 
     // string
@@ -645,10 +655,6 @@ uint8_t get_tx_data_osd(uint8_t index) // prepare osd+data to VTX
 
 void insert_tx_byte(uint8_t c) {
     dptxbuf[dptx_wptr++] = c;
-#ifdef _DEBUG_DISPLAYPORT
-    if (dptx_wptr == dptx_rptr) // dptxbuf full
-        _outchar('*');
-#endif
 }
 
 #ifdef SDCC
@@ -724,13 +730,42 @@ void insert_tx_buf(uint8_t len) {
     insert_tx_byte(crc1);
 }
 
-void msp_send_header(uint8_t dl) {
+void msp_send_command(uint8_t dl, uint8_t version) {
     if (dl) {
         WAIT(20);
     }
-    msp_tx(0x24);
-    msp_tx(0x4d);
-    msp_tx(0x3c);
+    msp_tx(MSP_HEADER_FRAMER);
+    msp_tx(version);
+    msp_tx(MSP_HEADER_COMMAND);
+}
+
+void msp_send_response(uint8_t dl, uint8_t version) {
+    if (dl) {
+        WAIT(20);
+    }
+    msp_tx(MSP_HEADER_FRAMER);
+    msp_tx(version);
+    msp_tx(MSP_HEADER_RESPONSE);
+}
+
+uint8_t msp_send_header_v2(uint16_t len, uint16_t msg) {
+    // Flags
+    msp_tx(0);
+    uint8_t crc = crc8tab[0];
+
+    // Message Type
+    msp_tx(msg & 0x00FF);
+    crc = crc8tab[crc ^ (msg & 0x00FF)];
+    msp_tx((msg & 0xFF00) >> 8);
+    crc = crc8tab[crc ^ ((msg & 0xFF00) >> 8)];
+
+    // Length
+    msp_tx(len & 0x00FF);
+    crc = crc8tab[crc ^ (len & 0x00FF)];
+    msp_tx((len & 0xFF00) >> 8);
+    crc = crc8tab[crc ^ ((len & 0xFF00) >> 8)];
+
+    return crc;
 }
 
 void msp_cmd_tx() // send 3 commands to FC
@@ -738,15 +773,15 @@ void msp_cmd_tx() // send 3 commands to FC
     uint8_t i;
     uint8_t const count = (fc_lock & FC_VTX_CONFIG_LOCK) ? 4 : 5;
     uint8_t const msp_cmd[5] = {
-        MSP_CMD_FC_VARIANT_BYTE,
-        MSP_CMD_STATUS_BYTE,
-        MSP_CMD_RC_BYTE,
-        MSP_CMD_GET_OSD_CANVAS_BYTE,
-        MSP_CMD_VTX_CONFIG_BYTE,
+        MSP_FC_VARIANT,
+        MSP_STATUS,
+        MSP_RC,
+        MSP_GET_OSD_CANVAS,
+        MSP_GET_VTX_CONFIG,
     };
 
     for (i = 0; i < count; i++) {
-        msp_send_header(0);
+        msp_send_command(0, MSP_HEADER_V1);
         msp_tx(0x00);       // len
         msp_tx(msp_cmd[i]); // function
         msp_tx(msp_cmd[i]); // crc
@@ -754,11 +789,88 @@ void msp_cmd_tx() // send 3 commands to FC
 }
 
 void msp_eeprom_write() {
-    msp_send_header(1);
+    msp_send_command(1, MSP_HEADER_V1);
     msp_tx(0x00);
     msp_tx(250);
     msp_tx(250);
 }
+
+void msp_send_vtx_model_name() {
+    uint32_t i = 0;
+    uint8_t crc = 0;
+    uint8_t len = strlen(VTX_NAME);
+
+    msp_send_response(0, MSP_HEADER_V2);
+    crc = msp_send_header_v2(len, MSP_VTX_GET_MODEL_NAME);
+
+    // Payload
+    for (i = 0; i < len; ++i) {
+        msp_tx(VTX_NAME[i]);
+        crc = crc8tab[crc ^ VTX_NAME[i]];
+    }
+    msp_tx(crc);
+}
+
+void msp_send_vtx_fc_variant() {
+    uint8_t crc = 0;
+
+    msp_send_response(0, MSP_HEADER_V2);
+    crc = msp_send_header_v2(4, MSP_VTX_GET_FC_VARIANT);
+
+    // Payload
+    msp_tx(fc_variant[0]);
+    crc = crc8tab[crc ^ fc_variant[0]];
+    msp_tx(fc_variant[1]);
+    crc = crc8tab[crc ^ fc_variant[1]];
+    msp_tx(fc_variant[2]);
+    crc = crc8tab[crc ^ fc_variant[2]];
+    msp_tx(fc_variant[3]);
+    crc = crc8tab[crc ^ fc_variant[3]];
+    msp_tx(crc);
+}
+
+void msp_send_vtx_fw_version() {
+    uint8_t crc = 0;
+
+    msp_send_response(0, MSP_HEADER_V2);
+    crc = msp_send_header_v2(3, MSP_VTX_GET_FW_VERSION);
+
+    // Payload
+    msp_tx(VTX_VERSION_MAJOR);
+    crc = crc8tab[crc ^ VTX_VERSION_MAJOR];
+    msp_tx(VTX_VERSION_MINOR);
+    crc = crc8tab[crc ^ VTX_VERSION_MINOR];
+    msp_tx(VTX_VERSION_PATCH_LEVEL);
+    crc = crc8tab[crc ^ VTX_VERSION_PATCH_LEVEL];
+    msp_tx(crc);
+}
+
+void msp_send_vtx_temperature() {
+    uint8_t crc = 0;
+    uint8_t temp = temperature >> 2;
+
+    msp_send_response(0, MSP_HEADER_V2);
+    crc = msp_send_header_v2(1, MSP_VTX_GET_TEMPERATURE);
+
+    // Payload
+    msp_tx(temp);
+    crc = crc8tab[crc ^ temp];
+    msp_tx(crc);
+}
+
+void msp_send_vtx_hw_faults() {
+    uint8_t crc = 0;
+    uint8_t faults = cameraLost & 1 | (dm6300_lost << 1) | (heat_protect << 2);
+
+    msp_send_response(0, MSP_HEADER_V2);
+    crc = msp_send_header_v2(1, MSP_VTX_GET_HW_FAULTS);
+
+    // Payload
+    msp_tx(faults);
+    crc = crc8tab[crc ^ faults];
+    msp_tx(crc);
+}
+
 void msp_set_vtx_config(uint8_t power, uint8_t save) {
     uint8_t crc = 0;
     uint8_t channel = RF_FREQ;
@@ -789,11 +901,11 @@ void msp_set_vtx_config(uint8_t power, uint8_t save) {
         channel = channel - 11;
     }
 
-    msp_send_header(0);
+    msp_send_command(0, MSP_HEADER_V1);
     msp_tx(0x0f);
     crc ^= 0x0f; // len
-    msp_tx(MSP_CMD_SET_VTX_CONFIG_BYTE);
-    crc ^= MSP_CMD_SET_VTX_CONFIG_BYTE; // cmd
+    msp_tx(MSP_SET_VTX_CONFIG);
+    crc ^= MSP_SET_VTX_CONFIG; // cmd
     msp_tx(0x00);
     crc ^= 0x00; // freq_l
     msp_tx(0x00);
@@ -836,10 +948,6 @@ void msp_set_vtx_config(uint8_t power, uint8_t save) {
     crc ^= 0x00; // disable/clear vtx table
     msp_tx(crc);
 
-#ifdef _DEBUG_MODE
-    debugf("\r\nmsp_set_vtx_config:FRQ%x,PWR%x,PIT:%x, LP:%x, SAVE:%x", (uint16_t)RF_FREQ, (uint16_t)power, (uint16_t)PIT_MODE, (uint16_t)LP_MODE, (uint16_t)save);
-#endif
-
     if (save)
         msp_eeprom_write();
 }
@@ -855,10 +963,6 @@ void parse_status() {
     if (g_IS_PARALYZE) {
         vtx_paralized();
     }
-#endif
-
-#if (0)
-    debugf("\n\rstatus:%x %x %x %x", (uint16_t)msp_rx_buf[6], (uint16_t)msp_rx_buf[7], (uint16_t)msp_rx_buf[8], (uint16_t)msp_rx_buf[9]);
 #endif
 }
 
@@ -887,9 +991,7 @@ void parse_rc() {
 uint8_t msp_vtx_set_channel(uint8_t const channel) {
     if (channel == INVALID_CHANNEL || channel == RF_FREQ)
         return 0;
-#ifdef _DEBUG_MODE
-    debugf("\r\nRF_FREQ to %x", (uint16_t)channel);
-#endif
+
     vtx_channel = channel;
     RF_FREQ = channel;
     if (dm6300_init_done)
@@ -942,17 +1044,16 @@ void parse_vtx_config() {
 void msp_set_osd_canvas(void) {
     uint8_t crc = 0;
     if (msp_cmp_fc_variant("BTFL")) {
-        msp_send_header(0);
+        msp_send_command(0, MSP_HEADER_V1);
         msp_tx(0x02);
         crc ^= 0x02; // len
-        msp_tx(MSP_CMD_SET_OSD_CANVAS_BYTE);
-        crc ^= MSP_CMD_SET_OSD_CANVAS_BYTE;
-        msp_tx(HD_HMAX0);
-        crc ^= HD_HMAX0;
-        msp_tx(HD_VMAX0);
-        crc ^= HD_VMAX0;
+        msp_tx(MSP_SET_OSD_CANVAS);
+        crc ^= MSP_SET_OSD_CANVAS;
+        msp_tx(OSD_CANVAS_HD_HMAX0);
+        crc ^= OSD_CANVAS_HD_HMAX0;
+        msp_tx(OSD_CANVAS_HD_VMAX0);
+        crc ^= OSD_CANVAS_HD_VMAX0;
         msp_tx(crc);
-        // debugf("\r\nmsp_set_osd_canvas");
     }
 }
 
@@ -964,10 +1065,10 @@ void msp_set_inav_osd_canvas(void) {
 }
 
 void parse_get_osd_canvas(void) {
-    if (msp_rx_buf[0] == HD_HMAX0 && msp_rx_buf[1] == HD_VMAX0) {
+    if (msp_rx_buf[0] == OSD_CANVAS_HD_HMAX0 && msp_rx_buf[1] == OSD_CANVAS_HD_VMAX0) {
         resolution = HD_5018;
         osd_menu_offset = 8;
-    } else if (msp_rx_buf[0] == SD_HMAX && msp_rx_buf[1] == SD_VMAX) {
+    } else if (msp_rx_buf[0] == OSD_CANVAS_SD_HMAX && msp_rx_buf[1] == OSD_CANVAS_SD_VMAX) {
         resolution = SD_3016;
         osd_menu_offset = 0;
     }
@@ -984,7 +1085,7 @@ void parseMspVtx_V2(uint16_t const cmd_u16) {
     if (tramp_lock)
         return;
 
-    if (cmd_u16 != MSP_CMD_VTX_CONFIG_BYTE)
+    if (cmd_u16 != MSP_GET_VTX_CONFIG)
         return;
 
     if (!(fc_lock & FC_VTX_CONFIG_LOCK))
@@ -997,25 +1098,7 @@ void parseMspVtx_V2(uint16_t const cmd_u16) {
     pwr_lmt_done = 1;
     mspVtxLock |= 1;
 
-#ifdef _DEBUG_MODE
-    debugf("\r\nparseMspVtx_V2");
-    debugf("\r\n    fc_vtx_dev:    %x", (uint16_t)msp_rx_buf[0]);
-    debugf("\r\n    fc_band_rx:    %x", (uint16_t)msp_rx_buf[1]);
-    debugf("\r\n    fc_channel_rx: %x", (uint16_t)msp_rx_buf[2]);
-    debugf("\r\n    fc_pwr_rx:     %x", (uint16_t)fc_pwr_rx);
-    debugf("\r\n    fc_pit_rx :    %x", (uint16_t)fc_pit_rx);
-    debugf("\r\n    fc_frequency : %x", ((uint16_t)msp_rx_buf[6] << 8) + msp_rx_buf[5]);
-    debugf("\r\n    fc_vtx_status: %x", (uint16_t)msp_rx_buf[7]);
-    debugf("\r\n    fc_lp_rx:      %x", (uint16_t)fc_lp_rx);
-    debugf("\r\n    fc_bands:      %x", (uint16_t)msp_rx_buf[12]);
-    debugf("\r\n    fc_channels:   %x", (uint16_t)msp_rx_buf[13]);
-    debugf("\r\n    fc_powerLevels %x", (uint16_t)msp_rx_buf[14]);
-#endif
-
     if (SA_lock || (init_table_done == 0 && !init_table_unsupported)) {
-#ifdef _DEBUG_MODE
-        debugf("\r\nparseMspVtx_V2 skipped. (SA_lock: %i, init_table_done: %i, init_table_unsupported: %i)\r\n", SA_lock, init_table_done, init_table_unsupported);
-#endif
         return;
     }
 
@@ -1063,9 +1146,6 @@ void parseMspVtx_V2(uint16_t const cmd_u16) {
     }
 
     PIT_MODE = fc_pit_rx & 1;
-#ifdef _DEBUG_MODE
-    debugf("\r\nPIT_MODE = %x", (uint16_t)PIT_MODE);
-#endif
     if (fc_pit_rx != last_pit) {
         if (PIT_MODE) {
             DM6300_SetPower(POWER_MAX + 1, RF_FREQ, pwr_offset);
@@ -1148,10 +1228,6 @@ void parseMspVtx_V2(uint16_t const cmd_u16) {
 
     if (needSaveEEP)
         ; // Setting_Save();
-
-#ifdef _DEBUG_MODE
-    debugf("\r\nparseMspVtx_V2 pwr:%x, pit:%x", (uint16_t)nxt_pwr, (uint16_t)fc_pit_rx);
-#endif
 }
 
 uint8_t parse_displayport(uint8_t len) {
@@ -1172,24 +1248,12 @@ uint8_t parse_displayport(uint8_t len) {
                 if (disp_mode == DISPLAY_OSD)
                     clear_screen();
                 osd_ready = 0;
-#ifdef _DEBUG_DISPLAYPORT
-                _outchar('\r');
-                _outchar('\n');
-                _outchar('C');
-#endif
                 return 0;
             } else if (msp_rx_buf[0] == SUBCMD_WRITE) {
-#ifdef _DEBUG_DISPLAYPORT
-                _outchar('W');
-#endif
                 osd_ready = 0;
                 state_osd = MSP_OSD_LOC;
             } else if (msp_rx_buf[0] == SUBCMD_DRAW) {
                 osd_ready = 1;
-#ifdef _DEBUG_DISPLAYPORT
-                _outchar('D');
-                _outchar(' ');
-#endif
                 if (!(fc_lock & FC_OSD_LOCK)) {
                     Flicker_LED(3);
                     fc_lock |= FC_OSD_LOCK;
@@ -1261,7 +1325,10 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
     static uint8_t last_mid = 1;
     static uint8_t cms_cnt;
 
+    static uint8_t camera_selected = 0;
+
     uint8_t VirtualBtn = BTN_INVALID;
+    static uint8_t VirtualBtn_last = BTN_INVALID;
 
     uint8_t IS_HI_yaw = IS_HI(yaw);
     uint8_t IS_LO_yaw = IS_LO(yaw);
@@ -1315,28 +1382,23 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
         if (!g_IS_ARMED) {
             if (stick_cmd_exit_0mw && (cur_pwr == POWER_MAX + 2)) {
                 cms_state = CMS_EXIT_0MW;
-                // debugf("\r\ncms_state(%x),cur_pwr(%x)",cms_state, cur_pwr);
                 cms_cnt = 0;
                 break;
             } else if (IS_HI_yaw && IS_LO_throttle && IS_LO_roll && IS_LO_pitch) {
                 cms_state = CMS_ENTER_VTX_MENU;
-                // debugf("\r\ncms_state(%x)",cms_state);
                 vtx_menu_init();
                 vtx_menu_state = VTX_MENU_CHANNEL;
             } else if (stick_cmd_enter_0mw) {
                 if (cur_pwr != POWER_MAX + 2) {
                     cms_state = CMS_ENTER_0MW;
-                    // debugf("\r\ncms_state(%x)",cms_state);
                     cms_cnt = 0;
                 }
             } else if (VirtualBtn == BTN_ENTER) {
                 cms_state = CMS_ENTER_CAM;
-                // debugf("\r\ncms_state(%x)",cms_state);
                 cms_cnt = 0;
             } else
                 cms_cnt = 0;
         }
-        // debugf("\n\r CMS_OSD");
         break;
 
     case CMS_ENTER_0MW:
@@ -1383,10 +1445,6 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                 Init_6300RF(RF_FREQ, POWER_MAX + 1);
                 cur_pwr = POWER_MAX + 1;
                 DM6300_AUXADC_Calib();
-#ifdef _DEBUG_MODE
-                debugf("\r\nExit 0mW\r\n");
-#endif
-                // debugf("\r\n exit0");
             } else {
                 save_vtx_param();
                 pit_mode_cfg_done = 1; // avoid to config DM6300 again
@@ -1394,10 +1452,6 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                 // SPI_Write(0x3, 0xd00, 0x00000003);
                 Init_6300RF(RF_FREQ, RF_POWER);
                 DM6300_AUXADC_Calib();
-#ifdef _DEBUG_MODE
-                debugf("\r\nExit 0mW\r\n");
-#endif
-                // debugf("\r\n exit0");
             }
         }
 
@@ -1619,7 +1673,7 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
                     fc_init();
                     break;
                 } // switch
-            }     // if(last_mid)
+            } // if(last_mid)
             // last_mid = mid;
         } else {
             cms_state = CMS_OSD;
@@ -1638,8 +1692,59 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
             cms_cnt = 0;
             disp_mode = DISPLAY_CMS;
             clear_screen();
-            camera_menu_init();
-            cms_state = CMS_CAM;
+            if (camera_type == CAMERA_TYPE_UNKNOW ||
+                camera_type == CAMERA_TYPE_OUTDATED) {
+                camera_select_menu_init();
+                camera_selected = 0;
+                cms_state = CMS_SELECT_CAM;
+            } else {
+                camera_menu_init();
+                cms_state = CMS_CAM;
+            }
+        }
+        break;
+    }
+
+    case CMS_SELECT_CAM: {
+        if (last_mid) {
+            if (VirtualBtn == BTN_UP) {
+                camera_selected--;
+                if (camera_selected > CAM_SELECT_EXIT)
+                    camera_selected = CAM_SELECT_EXIT;
+                camera_select_menu_cursor_update(camera_selected);
+            } else if (VirtualBtn == BTN_DOWN) {
+                camera_selected++;
+                if (camera_selected > CAM_SELECT_EXIT)
+                    camera_selected = CAM_SELECT_RUNCAM_ECO;
+                camera_select_menu_cursor_update(camera_selected);
+            } else if (VirtualBtn == BTN_LEFT) {
+                if (camera_selected == CAM_SELECT_RATIO) {
+                    camRatio = 1 - camRatio;
+                    camera_select_menu_ratio_upate();
+                    I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_CAM_RATIO, camRatio);
+                }
+            } else if (VirtualBtn == BTN_RIGHT) {
+                if (camera_selected == CAM_SELECT_RATIO) {
+                    camRatio = 1 - camRatio;
+                    camera_select_menu_ratio_upate();
+                    I2C_Write8_Wait(10, ADDR_EEPROM, EEP_ADDR_CAM_RATIO, camRatio);
+                } else {
+                    camera_is_3v3 = (camera_selected == CAM_SELECT_RUNCAM_ECO);
+                    clear_screen();
+                    if (camera_selected == CAM_SELECT_EXIT) {
+                        disp_mode = DISPLAY_OSD;
+                        cms_state = CMS_OSD;
+                        msp_tx_cnt = 0;
+                    } else {
+                        camera_button_enter;
+                        camera_menu_mode_exit_note();
+#ifdef USE_TP9950
+                        cam_menu_timeout_sec = seconds;
+#endif
+                        cms_state = CMS_CAM;
+                    }
+                }
+            }
         }
         break;
     }
@@ -1667,7 +1772,25 @@ void update_cms_menu(uint16_t roll, uint16_t pitch, uint16_t yaw, uint16_t throt
         break;
     }
     } // switch
+
     last_mid = mid;
+
+#ifdef USE_TP9950
+    if (cms_state == CMS_CAM && (camera_type == CAMERA_TYPE_UNKNOW || camera_type == CAMERA_TYPE_OUTDATED)) {
+        if (VirtualBtn_last == VirtualBtn) {
+            if (seconds - cam_menu_timeout_sec >= 60) {
+                // exit cam menu
+                disp_mode = DISPLAY_OSD;
+                cms_state = CMS_OSD;
+                fc_init();
+                msp_tx_cnt = 0;
+            }
+        } else {
+            cam_menu_timeout_sec = seconds;
+        }
+    }
+    VirtualBtn_last = VirtualBtn;
+#endif
 }
 
 void vtx_menu_init() {
@@ -1863,11 +1986,8 @@ void set_vtx_param() {
                 if (vtx_pit_save == PIT_0MW) {
                     WriteReg(0, 0x8F, 0x10);
                     dm6300_init_done = 0;
-// SPI_Write(0x6, 0xFF0, 0x00000018);
-// SPI_Write(0x3, 0xd00, 0x00000000);
-#ifdef _DEBUG_MODE
-                    debugf("\r\nDM6300 0mW");
-#endif
+                    // SPI_Write(0x6, 0xFF0, 0x00000018);
+                    // SPI_Write(0x3, 0xd00, 0x00000000);
                     cur_pwr = POWER_MAX + 2;
                     temp_err = 1;
                 } else // if(vtx_pit_save == PIT_P1MW)
@@ -1877,9 +1997,6 @@ void set_vtx_param() {
                         DM6300_AUXADC_Calib();
                     } else
                         DM6300_SetPower(POWER_MAX + 1, RF_FREQ, 0);
-#ifdef _DEBUG_MODE
-                    debugf("\r\nDM6300 P1mW");
-#endif
                     cur_pwr = POWER_MAX + 1;
                 }
             }
@@ -1888,9 +2005,6 @@ void set_vtx_param() {
             if (LP_MODE) {
                 DM6300_SetPower(0, RF_FREQ, 0); // limit power to 25mW
                 cur_pwr = 0;
-#ifdef _DEBUG_MODE
-                debugf("\n\rEnter LP_MODE");
-#endif
             }
             lp_mode_cfg_done = 1;
         }
@@ -1911,9 +2025,6 @@ void set_vtx_param() {
             }
         } else if (PIT_MODE || LP_MODE) {
 // exit pitmode or lp_mode
-#ifdef _DEBUG_MDOE
-            debugf("\n\rExit PIT or LP");
-#endif
 #ifndef VIDEO_PAT
 #if defined HDZERO_FREESTYLE_V1 || HDZERO_FREESTYLE_V2
             if (RF_POWER == 3 && !g_IS_ARMED)
@@ -1949,9 +2060,6 @@ void set_vtx_param() {
         if (LP_MODE == 1) {
             DM6300_SetPower(0, RF_FREQ, 0); // limit power to 25mW during disarmed
             cur_pwr = 0;
-#ifdef _DEBUG_MODE
-            debugf("\n\rEnter LP_MODE");
-#endif
         }
     }
 
@@ -2025,10 +2133,6 @@ void InitVtxTable() {
     uint8_t crc;
     uint8_t const *power_table[5];
 
-#ifdef _DEBUG_MODE
-    debugf("\r\nInitVtxTable");
-#endif
-
     // set band num, channel num and power level number
     if (TEAM_RACE)
         msp_set_vtx_config(POWER_MAX + 1, 0);
@@ -2037,7 +2141,7 @@ void InitVtxTable() {
 
     // set band/channel
     for (i = 0; i < 5; i++) {
-        msp_send_header(1);
+        msp_send_command(1, MSP_HEADER_V1);
         crc = 0;
         for (j = 0; j < 31; j++) {
             msp_tx(bf_vtx_band_table[i][j]);
@@ -2048,7 +2152,7 @@ void InitVtxTable() {
 
     // set low band
     i = lowband_lock ? 6 : 5;
-    msp_send_header(1);
+    msp_send_command(1, MSP_HEADER_V1);
     crc = 0;
     for (j = 0; j < 31; j++) {
         msp_tx(bf_vtx_band_table[i][j]);
@@ -2080,7 +2184,7 @@ void InitVtxTable() {
 
     // send all of them
     for (i = 0; i < 5; i++) {
-        msp_send_header(1);
+        msp_send_command(1, MSP_HEADER_V1);
         crc = 0;
         for (j = 0; j < 9; j++) {
             msp_tx(power_table[i][j]);

@@ -21,9 +21,11 @@ uint8_t camera_setting_reg_menu[CAMERA_SETTING_NUM];
 uint8_t camera_profile_menu;
 
 uint8_t video_format = VDO_FMT_720P60;
-uint8_t camRatio = 0;
+uint8_t camRatio = 0; // 0->16:9   1->4:3
 uint8_t camMenuStatus = CAM_STATUS_IDLE;
 uint8_t reset_isp_need = 0;
+
+uint8_t camera_is_3v3 = 0;
 
 void camera_type_detect(void) {
     camera_type = CAMERA_TYPE_UNKNOW;
@@ -34,10 +36,6 @@ void camera_type_detect(void) {
         camera_type == CAMERA_TYPE_RUNCAM_NANO_90 ||
         camera_type == CAMERA_TYPE_RUNCAM_MICRO_V3) {
         camera_mfr = CAMERA_MFR_RUNCAM;
-#ifdef _DEBUG_CAMERA
-        debugf("\r\ncamera mfr : RUNCAM");
-        debugf("\r\ncamera type: %d", (uint16_t)camera_type);
-#endif
         return;
     }
 }
@@ -54,9 +52,11 @@ void camera_ratio_detect(void) {
     case CAMERA_TYPE_RUNCAM_NANO_90:
         camRatio = 1;
         break;
-#ifdef HDZERO_ECO
+#ifdef USE_TP9950
     case CAMERA_TYPE_OUTDATED:
-        camRatio = 1;
+        camRatio = I2C_Read8_Wait(10, ADDR_EEPROM, EEP_ADDR_CAM_RATIO);
+        if (camRatio > 1)
+            camRatio = 1;
         break;
 #endif
     default:
@@ -74,25 +74,21 @@ void camera_mode_detect(uint8_t init) {
 
     init = 0;
 
+#ifdef USE_TC3587_RSTB
     TC3587_RSTB = 0;
     WAIT(100);
     TC3587_RSTB = 1;
     WAIT(100);
+#endif
 
     Set_720P60_8bit(0);
-
-#ifdef _DEBUG_MODE
-    debugf("\r\nchipID");
-#endif
     id = I2C_Read8(ADDR_TP9950, 0xfe);
-#ifdef _DEBUG_MODE
-    debugf("\r\n    fe:%2x", id);
-#endif
-
     id = I2C_Read8(ADDR_TP9950, 0xff);
-#ifdef _DEBUG_MODE
-    debugf("\r\n    ff:%2x\r\n", id);
-#endif
+    WAIT(200);
+
+    Set_720P60_8bit(0);
+    id = I2C_Read8(ADDR_TP9950, 0xfe);
+    id = I2C_Read8(ADDR_TP9950, 0xff);
     WAIT(200);
 
     I2C_Write8(ADDR_TP9950, 0x26, 0x01);
@@ -209,23 +205,14 @@ void camera_mode_detect(uint8_t init) {
             if (video_format == VDO_FMT_720P50) {
                 Init_TC3587(0);
                 Set_720P50(IS_RX);
-#ifdef _DEBUG_CAMERA
-                debugf("\r\nCamDetect: Set 50fps.");
-#endif
             } else if (video_format == VDO_FMT_720P60) {
                 Init_TC3587(0);
                 Set_720P60(IS_RX);
-#ifdef _DEBUG_CAMERA
-                debugf("\r\nCamDetect: Set 60fps.");
-#endif
             }
             WAIT(100);
 
             for (detect_tries = 0; detect_tries < 5; detect_tries++) {
                 status_reg = ReadReg(0, 0x02);
-#ifdef _DEBUG_CAMERA
-                debugf("\r\nCamDetect status_reg: %x", status_reg);
-#endif
                 if ((status_reg >> 4) != 0) {
                     loss = 1;
                 }
@@ -259,13 +246,6 @@ void camera_mode_detect(uint8_t init) {
             RF_BW = BW_27M;
         RF_BW_last = RF_BW;
     }
-#ifdef _DEBUG_MODE
-    debugf("\r\ncameraID: %x, bw: ", (uint16_t)camera_type);
-    if (RF_BW == BW_17M)
-        debugf("17M");
-    else
-        debugf("27M");
-#endif
 }
 #endif
 
@@ -278,7 +258,6 @@ void camera_button_init() {
 
 void camera_reg_write_eep(uint16_t addr, uint8_t val) {
     I2C_Write8_Wait(10, ADDR_EEPROM, addr, val);
-    debugf("\r\neep write(%02x,%d)", addr, (uint16_t)val);
 }
 uint8_t camera_reg_read_eep(uint16_t addr) {
     return I2C_Read8_Wait(10, ADDR_EEPROM, addr);
@@ -320,9 +299,6 @@ void camera_setting_profile_check(uint8_t profile) {
     if (need_reset) {
         camera_setting_profile_reset(profile);
         camera_setting_profile_write(profile);
-#ifdef _DEBUG_CAMERA
-        debugf("\r\ncamera setting need to be reset");
-#endif
     }
 }
 void camera_profile_read(void) {
@@ -360,9 +336,6 @@ void camera_setting_read(void) {
         }
         camera_reg_write_eep(EEP_ADDR_CAM_TYPE, camera_type);
         i = camera_reg_read_eep(EEP_ADDR_CAM_TYPE);
-#ifdef _DEBUG_CAMERA
-        debugf("\r\ncamera changed(%d==>%d), reset camera setting", camera_type_last, i);
-#endif
     } else {
         camera_profile_read();
         camera_profile_check();
@@ -379,10 +352,6 @@ void camera_setting_reg_menu_update(void) {
     uint8_t i;
     for (i = 0; i < CAMERA_SETTING_NUM; i++)
         camera_setting_reg_menu[i] = camera_setting_reg_eep[camera_profile_menu][i];
-
-#ifdef _DEBUG_CAMERA
-    debugf("\r\ncamera profile:%d", camera_profile_menu);
-#endif
 }
 
 void camera_setting_reg_eep_update(void) {
@@ -455,6 +424,7 @@ void camera_menu_draw_bracket(void) {
 void camera_menu_draw_value(void) {
     const char *wb_mode_str[] = {"   AUTO", " MANUAL"};
     const char *switch_str[] = {"    OFF", "     ON"};
+    const char *hv_flip_str[] = {"    OFF", "     ON", " V ONLY", " H ONLY"};
     const char *resolution_runcam_micro_v2[] = {"      4:3 ", " 16:9CROP ", " 16:9FULL ", "  1080@30 "};
     const char *resolution_runcam_nano_90[] = {"   540P@90", "540@90CROP", "   540P@60", "960X720@60"};
     const char *resolution_runcam_micro_v3[] = {"      4:3 ", " 16:9CROP ", " 16:9FULL ", "  1080@30 "};
@@ -523,7 +493,9 @@ void camera_menu_draw_value(void) {
                 uint8ToString(camera_setting_reg_menu[i - 1], str);
                 strcpy(&osd_buf[i][osd_menu_offset + 25], str);
                 break;
-            case CAM_STATUS_HVFLIP:     // hv flip
+            case CAM_STATUS_HVFLIP: // hv flip
+                strcpy(&osd_buf[i][osd_menu_offset + 21], hv_flip_str[camera_setting_reg_menu[i - 1]]);
+                break;
             case CAM_STATUS_NIGHT_MODE: // night mode
             case CAM_STATUS_LED_MODE:   // led mode
                 strcpy(&osd_buf[i][osd_menu_offset + 21], switch_str[camera_setting_reg_menu[i - 1]]);
@@ -574,19 +546,15 @@ void camera_menu_init(void) {
 
     memset(osd_buf, 0x20, sizeof(osd_buf));
     disp_mode = DISPLAY_CMS;
-    if (camera_type == CAMERA_TYPE_UNKNOW ||
-        camera_type == CAMERA_TYPE_OUTDATED)
-        camera_button_enter;
-    else {
-        for (i = 0; i <= 15; i++) {
-            osd_buf_p = osd_buf[i] + osd_menu_offset + 3;
-            strcpy(osd_buf_p, cam_menu_string[i]);
-        }
-        camera_profile_menu = camera_profile_eep;
-        camera_setting_reg_menu_update();
-        camera_menu_draw_bracket();
-        camera_menu_draw_value();
+
+    for (i = 0; i <= 15; i++) {
+        osd_buf_p = osd_buf[i] + osd_menu_offset + 3;
+        strcpy(osd_buf_p, cam_menu_string[i]);
     }
+    camera_profile_menu = camera_profile_eep;
+    camera_setting_reg_menu_update();
+    camera_menu_draw_bracket();
+    camera_menu_draw_value();
 }
 void camera_menu_show_repower(void) {
     memset(osd_buf, 0x20, sizeof(osd_buf));
@@ -861,9 +829,6 @@ uint8_t camera_status_update(uint8_t op) {
         break;
     case CAM_STATUS_REPOWER:
         if (op == BTN_RIGHT) {
-#ifdef _DEBUG_MODE
-            debugf("\r\nRF_Delay_Init: None");
-#endif
             camera_profile_write();
             reset_isp_need |= camera_set(camera_setting_reg_menu, 1, 0);
             camera_setting_reg_eep_update();
@@ -911,3 +876,42 @@ uint8_t camera_status_update(uint8_t op) {
     return ret;
 }
 #endif
+
+void camera_select_menu_init(void) {
+    const char *cam_select_menu_string[] = {
+        "> ECO CAMERA MENU",
+        "  LUX CAMERA MENU",
+        "  VTX RATIO FOR LUX CAMERA  <4:3> ",
+        "  EXIT",
+    };
+    char *osd_buf_p;
+    uint8_t i;
+
+    for (i = 0; i <= CAM_SELECT_EXIT; i++) {
+        osd_buf_p = osd_buf[i] + osd_menu_offset;
+        strcpy(osd_buf_p, cam_select_menu_string[i]);
+    }
+    camera_select_menu_ratio_upate();
+}
+
+void camera_select_menu_cursor_update(uint8_t index) {
+    uint8_t i;
+    for (i = 0; i <= CAM_SELECT_EXIT; i++) {
+        if (i == index)
+            osd_buf[i][osd_menu_offset] = '>';
+        else
+            osd_buf[i][osd_menu_offset] = ' ';
+    }
+}
+
+void camera_select_menu_ratio_upate() {
+    if (camRatio == 1)
+        strcpy(osd_buf[2] + osd_menu_offset + 28, "<4:3> ");
+    else
+        strcpy(osd_buf[2] + osd_menu_offset + 28, "<16:9>");
+}
+
+void camera_menu_mode_exit_note() {
+    const char note_string[] = "LEFT MOVE THROTTLE TO EXIT CAMERA MENU";
+    strcpy(osd_buf[15] + 5, note_string);
+}
